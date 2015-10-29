@@ -265,7 +265,7 @@ int inifile_write_node(void * handle,char * index,char *value)
 
 
 
-int main(void)
+int test_inifile(void)
 {
 
 	dbg_printf("this is null ! \n");
@@ -290,4 +290,5 @@ int main(void)
 	
 	return(0);
 }
+
 
