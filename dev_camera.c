@@ -72,7 +72,7 @@ static int camera_set_channel(int camera_fd,int width, int height, int enable)
 }
 
 
-static int camera_stop (camera_dev_t * handle)
+int camera_stop (camera_dev_t * handle)
 {
 	int ret = -1;
 	if(NULL == handle || handle->camera_fd <=0 )
@@ -95,7 +95,7 @@ static int camera_stop (camera_dev_t * handle)
 
 
 
-static int camera_start (camera_dev_t * handle)
+int camera_start (camera_dev_t * handle)
 {
 	int ret = -1;
 	if(NULL == handle || handle->camera_fd <=0 )
@@ -188,7 +188,8 @@ static int camera_mmap(camera_dev_t * handle,unsigned int buff_szie)
 }
 
 
-static int camera_unmmap(camera_dev_t * handle)
+
+int camera_unmmap(camera_dev_t * handle)
 {
 	if(NULL == handle || NULL == handle->pmem_addres)
 	{
@@ -201,7 +202,8 @@ static int camera_unmmap(camera_dev_t * handle)
 }
 
 
-static void * camera_read_frame(camera_dev_t * handle)
+
+void * camera_read_frame(camera_dev_t * handle)
 {
 
 	int ret = -1;
@@ -268,7 +270,7 @@ static void * camera_read_frame(camera_dev_t * handle)
 
 
 
-static int camera_free_frame(camera_dev_t * handle,void * frame_buff)
+int camera_free_frame(camera_dev_t * handle,void * frame_buff)
 {
 	int ret = -1;
 
@@ -288,7 +290,7 @@ static int camera_free_frame(camera_dev_t * handle,void * frame_buff)
 	return(0);
 }
 
-static void * camera_new_dev(const char * dev_path)
+void * camera_new_dev(const char * dev_path)
 {
 
 	int ret = -1;
@@ -370,8 +372,10 @@ static void * camera_new_dev(const char * dev_path)
 	}
 
 
-
+#if 0
 	camera_set_channel(new_camera->camera_fd,VIDEO_WIDTH_VGA,VIDEO_HEIGHT_VGA,1);
+#endif
+
 	ret  = xioctl(new_camera->camera_fd, VIDIOC_G_FMT, &fmt);
 	if(0 != ret)
 	{
@@ -398,7 +402,10 @@ static void * camera_new_dev(const char * dev_path)
 	min = fmt.fmt.pix.bytesperline * fmt.fmt.pix.height;
 	if (fmt.fmt.pix.sizeimage < min)
 			fmt.fmt.pix.sizeimage = min;
+
+#if 0
 	fmt.fmt.pix.sizeimage += (new_camera->video_width*new_camera->video_height*3/2);
+#endif
 
 	camera_mmap(new_camera,fmt.fmt.pix.sizeimage);
 
@@ -423,22 +430,7 @@ fail:
 }
 
 	
-void * register_camera(void)
-{
-	camera_handle_t * new_one = calloc(1,sizeof(*new_one));
-	if(NULL == new_one)
-	{
-		dbg_printf("calloc is fail ! \n");
-		return(NULL);
-	}
-	new_one->dev 			= NULL;
-	new_one->new_dev		= camera_new_dev;
-	new_one->read_frame		= camera_read_frame;
-	new_one->free_frame		= camera_free_frame;
-	new_one->stop			= camera_stop;
-	new_one->start			= camera_start;
-	return(new_one);
-}
+
 
 
 

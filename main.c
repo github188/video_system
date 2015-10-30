@@ -6,6 +6,7 @@
 
 #include "akuio.h"
 #include "dev_camera.h"
+#include "video_encode.h"
 #include "common.h"
 
 #undef  	DBG_ON
@@ -25,11 +26,16 @@ static int lib_init(void)
 		return(-1);
 	}
 
+	ret = video_encode_init();
+	if(0 == ret)
+	{
+		dbg_printf("video encode lib init fail ! \n");
+		return(-2);
+	}
+
 	return(0);
 }
 
-
-static camera_handle_t * camera = NULL;
 
 
 int main(void)
@@ -44,29 +50,27 @@ int main(void)
 	}
 
 
-	camera = register_camera();
+	
+	camera_dev_t * camera = camera_new_dev(CAMERA_DEVICE);
 	if(NULL == camera)
-	{
-		dbg_printf("please check the param ! \n");
-	}
-
-	if(NULL != camera->dev)
-	{
-		dbg_printf("the camera has been init ! \n");
-		return(-3);
-	}
-
-	camera->dev = camera->new_dev(CAMERA_DEVICE);
-	if(NULL == camera->dev)
 	{
 		dbg_printf("the dev is not ok ! \n");
 		return(-4);
 
 	}
-	camera->start(camera->dev);
+
+	video_encode_handle_t * new_encode_handle = (video_encode_handle_t*)video_new_handle(TYPE_VGA);
+	if(NULL == new_encode_handle)
+	{
+		dbg_printf("video_new_handle is fail ! \n");
+		return(-5);
+
+	}
+	
+	camera_start(camera);
 
 	int test_fd = -1;
-	test_fd = open("/mnt/mmc/yuv_file.yuv",O_RDWR|O_APPEND);
+	test_fd = open("/mnt/mmc/yuv_file.264",O_RDWR|O_APPEND);
 	if(test_fd < 0)
 	{
 		dbg_printf("open the file fail ! \n");
@@ -74,20 +78,34 @@ int main(void)
 	}
 
 	int count = 0;
+	void *out_buff;
+	int size = 0;
+	frame_type_m i_frame = UNKNOW_FRAME;
 
 	while(1)
 	{
-		struct v4l2_buffer *frame_buf = camera->read_frame(camera->dev);
+		struct v4l2_buffer *frame_buf = camera_read_frame(camera);
 		if(NULL == frame_buf)continue;
-		write(test_fd,(void*)frame_buf->m.userptr,frame_buf->length);
-		camera->free_frame(camera->dev,frame_buf);
+
+		if((count % 30) == 0 )i_frame = I_FRAME;
+		else
+			i_frame = P_FRAME;
+		
+		size = video_encode_frame(new_encode_handle,(void*)frame_buf->m.userptr,&out_buff,i_frame);
+		if(size > 0)
+		{
+			write(test_fd,(void*)out_buff,size);
+		}
+		
+		camera_free_frame(camera,frame_buf);
 		count += 1;
-		if(count > 60)break;
+		if(count > 1000)break;
 		
 		
 	}
 
 	close(test_fd);
+	video_encode_close(new_encode_handle);
 	
 
 	
