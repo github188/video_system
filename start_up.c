@@ -10,7 +10,6 @@
 #include <string.h>
 #include <pthread.h>
 #include <ctype.h>
-#include <unistd.h> 
 #include <net/if.h>       
 #include <linux/sockios.h>     
 #include <netinet/in.h>      
@@ -21,6 +20,12 @@
 
 #include "common.h"
 #include "parser_inifile.h"
+
+
+#undef  	DBG_ON
+#undef  	FILE_NAME
+#define 	DBG_ON  	(0x01)
+#define 	FILE_NAME 	"start_up"
 
 
 
