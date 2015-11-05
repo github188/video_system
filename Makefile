@@ -21,6 +21,7 @@ LOCAL_DEV_SRC := \
 		$(LOCAL_SRC)/video_encode.c	 \
 		$(LOCAL_SRC)/start_up.c		\
 		$(LOCAL_SRC)/ring_queue.c	\
+		$(LOCAL_SRC)/net_send.c		\
 		$(LOCAL_SRC)/main.c	
 
 
