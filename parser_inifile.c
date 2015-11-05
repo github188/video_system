@@ -1,3 +1,7 @@
+/*******************************************************************************
+**	jweihsz@qq.com		2015			v1.0
+*******************************************************************************/
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -261,6 +265,7 @@ int inifile_write_node(void * handle,char * index,char *value)
 	pthread_rwlock_unlock(&handle_ini->rwlock);
 	return(-2);
 }
+
 
 
 

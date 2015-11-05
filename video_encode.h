@@ -33,7 +33,7 @@ typedef struct video_encode_handle
 int video_encode_init(void);
 
 
-void * video_new_handle(video_type_m type);
+void * video_new_handle(unsigned int bps);
 int video_encode_frame(video_encode_handle_t * pencode_handle, void *pinbuf2, void **poutbuf2, frame_type_m  frame_type);
 int video_encode_close(video_encode_handle_t * pencode_handle);
 int video_encode_reSetRc(video_encode_handle_t * pencode_handle, int qp);

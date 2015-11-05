@@ -1,3 +1,9 @@
+/*******************************************************************************
+**	jweihsz@qq.com		2015			v1.0		
+**	others: refer to the anyka sdk
+*******************************************************************************/
+
+
 #include <stdio.h>
 #include <assert.h>
 #include <stdlib.h>
@@ -101,13 +107,9 @@ void  video_encode_unint( )
 
 
 
-void * video_new_handle(video_type_m type)
+void * video_new_handle(unsigned int bps)
 {
-	if(TYPE_VGA != type && TYPE_RECORD != type && TYPE_PIC)
-	{
-		dbg_printf("the type is not support ! \n");
-		return(NULL);
-	}
+
 	video_encode_handle_t * new_handle = calloc(1,sizeof(*new_handle));
 	if(NULL == new_handle)
 	{
@@ -148,7 +150,7 @@ void * video_new_handle(video_type_m type)
 	open_input.encH264Par.qpMin = 10;        
 	open_input.encH264Par.qpMax = 36;
 	open_input.encH264Par.fixedIntraQp = 0;
-    open_input.encH264Par.bitPerSecond = 400*1024/*500*1024*/;
+    open_input.encH264Par.bitPerSecond = bps;
     open_input.encH264Par.gopLen = 30; 
 
 	new_handle->rc.qpHdr = -1;

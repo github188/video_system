@@ -1,3 +1,7 @@
+/*******************************************************************************
+**	jweihsz@qq.com		2015			v1.0
+*******************************************************************************/
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -7,6 +11,7 @@
 #include "akuio.h"
 #include "dev_camera.h"
 #include "video_encode.h"
+#include "start_up.h"
 #include "common.h"
 
 #undef  	DBG_ON
@@ -42,15 +47,19 @@ int main(void)
 {
 	dbg_printf("this is a test ! \n");
 	int ret  =-1;
+	
+	start_up();
+
+
+	return  0;
+
+	
 	ret= lib_init();
 	if(ret != 0 )
 	{
 		dbg_printf("lib_init  fail ! \n");
 		return(-1);
 	}
-
-
-	
 	camera_dev_t * camera = camera_new_dev(CAMERA_DEVICE);
 	if(NULL == camera)
 	{
@@ -59,7 +68,7 @@ int main(void)
 
 	}
 
-	video_encode_handle_t * new_encode_handle = (video_encode_handle_t*)video_new_handle(TYPE_VGA);
+	video_encode_handle_t * new_encode_handle = (video_encode_handle_t*)video_new_handle(500*1024);
 	if(NULL == new_encode_handle)
 	{
 		dbg_printf("video_new_handle is fail ! \n");
@@ -99,7 +108,7 @@ int main(void)
 		
 		camera_free_frame(camera,frame_buf);
 		count += 1;
-		if(count > 1000)break;
+		if(count > 500)break;
 		
 		
 	}
