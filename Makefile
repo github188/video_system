@@ -9,7 +9,7 @@ CC = arm-none-linux-gnueabi-gcc
 
 LOCAL_INC =  -I./   -L./lib
 
-LOCAL_LIB =    -lpthread  -lakuio  -lakstreamenclib
+LOCAL_LIB =    -lpthread  -lakuio  -lakstreamenclib  -lrt
 LOCAL_SRC =  .
 
 
@@ -22,6 +22,7 @@ LOCAL_DEV_SRC := \
 		$(LOCAL_SRC)/start_up.c		\
 		$(LOCAL_SRC)/ring_queue.c	\
 		$(LOCAL_SRC)/net_send.c		\
+		$(LOCAL_SRC)/time_unitl.c	\
 		$(LOCAL_SRC)/main.c	
 
 

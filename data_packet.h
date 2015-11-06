@@ -20,10 +20,15 @@ typedef struct send_packet
 	void * data;
 	int length;
 	struct sockaddr to;
+
+	
 	packet_reliable_m type;
 	char is_resend;
 	char resend_times;
 	long index;
+	struct timeval tp;
+	struct timeval ta;
+	
 }send_packet_t;
 
 

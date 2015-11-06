@@ -8,10 +8,14 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <netdb.h>
+#include <sys/time.h>
+#include <time.h>
+
 
 #include "data_packet.h"
 #include "ring_queue.h"
 #include "net_send.h"
+#include "time_unitl.h"
 
 
 #include "common.h"
@@ -25,7 +29,7 @@
 
 #define		RESEND_PACKET_MAX_NUM	(1024)
 #define		RESEND_TIMES			(3)
-
+#define		RESEND_TIME_INTERVAL	(800)  /*ms*/
 
 typedef struct net_send_handle
 {
@@ -33,8 +37,14 @@ typedef struct net_send_handle
 	pthread_cond_t cond_send;
 	ring_queue_t send_msg_queue;
 	volatile unsigned int send_msg_num;
-	void * resend[RESEND_PACKET_MAX_NUM]; /*I帧重传也采取这种模式*/
-	volatile long packet_num;
+
+	
+	void * resend[RESEND_PACKET_MAX_NUM];
+	volatile long packet_num; 
+	pthread_mutex_t mutex_resend;
+	pthread_cond_t cond_resend;
+	volatile unsigned int resend_msg_num;
+	
 
 }net_send_handle_t;
 
@@ -68,9 +78,15 @@ static int netsend_handle_init(void)
     pthread_mutex_init(&(send_handle->mutex_send), NULL);
     pthread_cond_init(&(send_handle->cond_send), NULL);
 	send_handle->send_msg_num = 0;
+
+	
 	send_handle->packet_num = 0;
 	for(i=0;i<RESEND_PACKET_MAX_NUM;++i)
 		send_handle->resend[i] = NULL;
+	 pthread_mutex_init(&(send_handle->mutex_resend), NULL);
+	 pthread_cond_init(&(send_handle->cond_resend), NULL);
+	 send_handle->resend_msg_num = 0;
+
 	return(0);
 }
 
@@ -154,7 +170,7 @@ static void *  netsend_pthread_fun(void * arg)
 		count_send = 3;
 
 		
-		if(!packet->is_resend)
+		if(!packet->is_resend && RELIABLE_PACKET == packet->type)
 		{
 			packet->index = send->packet_num;
 			send->packet_num += 1;
@@ -162,7 +178,7 @@ static void *  netsend_pthread_fun(void * arg)
 				send->packet_num = 0;
 		}
 		
-		while(count_send -- )
+		while(count_send --)
 		{
 			ret = sendto(packet->sockfd,packet->data,packet->length,0,(struct sockaddr *)&packet->to,addr_len);
 			if(-1 == ret)
@@ -174,8 +190,6 @@ static void *  netsend_pthread_fun(void * arg)
 			}
 			break;
 		}
-
-
 
 		
 		if(UNRELIABLE_PACKET == packet->type)
@@ -192,13 +206,53 @@ static void *  netsend_pthread_fun(void * arg)
 		{
 			if(packet->is_resend)
 			{
-				/*检测其是否超过重发次数，如果有，直接释放，如果没有，改变其超时参数，从新推送回去*/
+				pthread_mutex_lock(&(send->mutex_resend));
+				if(packet->resend_times > RESEND_TIMES)
+				{
+					if(NULL != packet->data)
+					{
+						free(packet->data);
+						packet->data = NULL;
+					}
+					free(packet);
+					packet = NULL;	
+					send->resend[packet->index] = NULL;
+					volatile unsigned int *handle_num = &(send->resend_msg_num);
+					fetch_and_sub(handle_num, 1);  
+				}
+				pthread_mutex_unlock(&(send->mutex_resend));
+				
 			}
 			else
 			{
-				/*重新申请一个新包，推送到队列中去*/
+				pthread_mutex_lock(&(send->mutex_resend));
+				if(NULL != send->resend[packet->index])
+				{
+					send_packet_t * pre_packet = (send_packet_t*)send->resend[packet->index];
+					if(NULL != pre_packet->data)
+					{
+						free(pre_packet->data);
+						pre_packet->data = NULL;
+					}
+					free(pre_packet);
+					pre_packet = NULL;
+				}
+
+				packet->is_resend = 1;
+				packet->resend_times = 0;
+				packet->ta.tv_sec = 0;
+				packet->ta.tv_usec = RESEND_TIME_INTERVAL*1000;
+				get_time(&packet->tp);
+				
+				send->resend[packet->index] = packet;
+				
+				volatile unsigned int *task_num = &send->resend_msg_num;
+				fetch_and_add(task_num, 1);
+				pthread_mutex_unlock(&(send->mutex_resend));
+				pthread_cond_signal(&(send->cond_resend));
 
 			}
+			
 
 		}
 
@@ -210,6 +264,60 @@ static void *  netsend_pthread_fun(void * arg)
 
 
 
+
+static void *  netresend_pthread_fun(void * arg)
+{
+	net_send_handle_t * send = (net_send_handle_t * )arg;
+	if(NULL == send)
+	{
+		dbg_printf("please check the param ! \n");
+		return(NULL);
+	}
+
+	int ret = -1;
+	int is_run = 1;
+	int i = 0;
+	send_packet_t * packet = NULL;
+	struct timeval time_pass;
+	while(is_run)
+	{
+        pthread_mutex_lock(&(send->mutex_resend));
+        while (0 == send->resend_msg_num)
+        {
+            pthread_cond_wait(&(send->cond_resend), &(send->mutex_resend));
+        }
+		
+		ret = get_time(&time_pass);
+		if(ret != 0)
+		{
+			dbg_printf("error !! \n");
+			is_run = 0;
+			break;
+		}
+		for(i=0;i<RESEND_PACKET_MAX_NUM;++i)
+		{
+
+			if(NULL == send->resend[i])continue;
+			
+			packet = (send_packet_t*)(send->resend[i]);
+			if(timercmp(&time_pass,&packet->tp,>=))
+			{
+				packet->is_resend = 1;
+				packet->resend_times += 1;
+				netsend_push_msg(send->resend[i]);
+				add_time(&time_pass,&packet->ta,&packet->tp);
+			}
+		}
+		pthread_mutex_unlock(&(send->mutex_resend));
+
+		usleep(RESEND_TIME_INTERVAL*1000);
+
+
+	}
+
+	return(NULL);
+
+}
 
 
 
@@ -226,6 +334,10 @@ int  netsend_start_up(void)
 	pthread_t netsend_ptid;
 	ret = pthread_create(&netsend_ptid,NULL,netsend_pthread_fun,send_handle);
 	pthread_detach(netsend_ptid);
+
+	pthread_t netresend_ptid;
+	ret = pthread_create(&netresend_ptid,NULL,netresend_pthread_fun,send_handle);
+	pthread_detach(netresend_ptid);
 	
 
 
