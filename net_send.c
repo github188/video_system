@@ -340,5 +340,4 @@ int  netsend_start_up(void)
 	pthread_detach(netresend_ptid);
 	
 
-
 }

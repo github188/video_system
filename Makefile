@@ -23,6 +23,8 @@ LOCAL_DEV_SRC := \
 		$(LOCAL_SRC)/ring_queue.c	\
 		$(LOCAL_SRC)/net_send.c		\
 		$(LOCAL_SRC)/time_unitl.c	\
+		$(LOCAL_SRC)/eventfd.c		\
+		$(LOCAL_SRC)/net_recv.c		\
 		$(LOCAL_SRC)/main.c	
 
 
