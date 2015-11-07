@@ -10,6 +10,10 @@
 	do{if(DBG_ON)fprintf(stderr,FILE_NAME"%s(line=%d)->"fmt,__FUNCTION__,__LINE__,##arg);}while(0)
 
 
-#define	 anyka_print		dbg_printf			
+#define	 anyka_print		dbg_printf		
+
+
+
+
 	
 #endif

@@ -172,7 +172,11 @@ static void *  netsend_pthread_fun(void * arg)
 		
 		if(!packet->is_resend && RELIABLE_PACKET == packet->type)
 		{
+			
+			packet_header_t * head = (packet_header_t*)packet->data;
+			head->index = send->packet_num;
 			packet->index = send->packet_num;
+			
 			send->packet_num += 1;
 			if(send->packet_num >= RESEND_PACKET_MAX_NUM)
 				send->packet_num = 0;
@@ -204,6 +208,9 @@ static void *  netsend_pthread_fun(void * arg)
 		}
 		else
 		{
+
+			struct timeval time_pass;
+			get_time(&time_pass);
 			if(packet->is_resend)
 			{
 				pthread_mutex_lock(&(send->mutex_resend));
@@ -219,6 +226,12 @@ static void *  netsend_pthread_fun(void * arg)
 					send->resend[packet->index] = NULL;
 					volatile unsigned int *handle_num = &(send->resend_msg_num);
 					fetch_and_sub(handle_num, 1);  
+				}
+				else
+				{
+					add_time(&time_pass,&packet->ta,&packet->tp);	
+				
+
 				}
 				pthread_mutex_unlock(&(send->mutex_resend));
 				
@@ -240,9 +253,7 @@ static void *  netsend_pthread_fun(void * arg)
 
 				packet->is_resend = 1;
 				packet->resend_times = 0;
-				packet->ta.tv_sec = 0;
-				packet->ta.tv_usec = RESEND_TIME_INTERVAL*1000;
-				get_time(&packet->tp);
+				add_time(&time_pass,&packet->ta,&packet->tp);
 				
 				send->resend[packet->index] = packet;
 				
@@ -305,12 +316,12 @@ static void *  netresend_pthread_fun(void * arg)
 				packet->is_resend = 1;
 				packet->resend_times += 1;
 				netsend_push_msg(send->resend[i]);
-				add_time(&time_pass,&packet->ta,&packet->tp);
+				
 			}
 		}
 		pthread_mutex_unlock(&(send->mutex_resend));
 
-		usleep(RESEND_TIME_INTERVAL*1000);
+		usleep(100*1000);
 
 
 	}

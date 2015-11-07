@@ -28,7 +28,7 @@
 
 
 
-static system_handle_t * handle_system = NULL;
+static  system_handle_t * handle_system = NULL;
 
 static int system_socket_init(void * arg)
 {
@@ -43,9 +43,11 @@ static int system_socket_init(void * arg)
 	system_handle_t * handle = (system_handle_t*)arg;
 
 	bzero(&handle->servaddr, sizeof(handle->servaddr));
-	handle->servaddr.sin_family = AF_INET;
-	handle->servaddr.sin_port = htons(SERVER_PORT);
-	ret = inet_pton(AF_INET,SERVER_ADDRES,&handle->servaddr.sin_addr);
+	struct sockaddr_in * addr = (struct sockaddr_in *)&handle->servaddr;
+	
+	addr->sin_family = AF_INET;
+	addr->sin_port = htons(SERVER_PORT);
+	ret = inet_pton(AF_INET,SERVER_ADDRES,&addr->sin_addr);
 	if(ret < 0)
 	{
 		dbg_printf("inet_pton fail ! \n");

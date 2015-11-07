@@ -10,7 +10,7 @@ typedef struct system_handle
 {
 	int local_socket;
 	int servce_socket;
-	struct sockaddr_in	servaddr;
+	struct sockaddr	servaddr;
 
 }system_handle_t;
 
