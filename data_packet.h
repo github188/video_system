@@ -34,6 +34,34 @@ typedef struct send_packet
 
 
 
+typedef enum
+{
+
+	DUMP_PACKET = 100,
+	REGISTER_PACKET,
+	REGISTER_PACKET_ASK,
+	LOIN_PACKET,
+	LOIN_PACKET_ASK,
+	BEATHEART_PACKET,
+	BEATHEART_PACKET_ASK,
+	UNKNOW_PACKET,
+	
+}packet_type_m;
+
+
+typedef struct packet_header
+{
+	packet_type_m type;
+	unsigned packet_len;
+}packet_header_t;
+
+
+
+
+
+
+
+
 
 
 

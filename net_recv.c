@@ -17,6 +17,8 @@
 #include "common.h"
 #include "net_recv.h"
 #include "eventfd.h"
+#include "ring_queue.h"
+#include "data_packet.h"
 
 
 
@@ -31,6 +33,10 @@ typedef struct net_recv_handle
 	int event_fd;
 	int recv_socket;
 	int servce_socket;
+	pthread_mutex_t mutex_recv;
+	pthread_cond_t cond_recv;
+	ring_queue_t recv_msg_queue;
+	volatile unsigned int recv_msg_num;
 
 }net_recv_handle_t;
 
@@ -42,6 +48,9 @@ static net_recv_handle_t * recv_handle = NULL;
 
 int net_recv_init(void)
 {
+
+
+	int ret = -1;
 	if(NULL != recv_handle)
 	{
 		dbg_printf("recv_handle  has been init ! \n");
@@ -65,13 +74,24 @@ int net_recv_init(void)
 
 	recv_handle->recv_socket = -1;
 	recv_handle->servce_socket = -1;
+
+
+	/*单用户模式*/
+	ret = ring_queue_init(&recv_handle->recv_msg_queue, 2048);
+	if(ret < 0 )
+	{
+		dbg_printf("ring_queue_init  fail \n");
+		return(-3);
+	}
+    pthread_mutex_init(&(recv_handle->mutex_recv), NULL);
+    pthread_cond_init(&(recv_handle->cond_recv), NULL);
+	recv_handle->recv_msg_num = 0;
 	
 	return(0);
 
 fail:
+
 	
-
-
 	if(NULL != recv_handle)
 	{
 		free(recv_handle);
@@ -85,8 +105,53 @@ fail:
 
 
 
+int  netrecv_push_msg(void * data )
+{
 
-static int recv_socket_fun(void * arg)
+	int ret = 1;
+	int i = 0;
+	if(NULL == recv_handle)
+	{
+		dbg_printf("check the param ! \n");
+		return(-1);
+	}
+
+	net_recv_handle_t * recv = recv_handle;
+	pthread_mutex_lock(&(recv->mutex_recv));
+
+	for (i = 0; i < 1000; i++)
+	{
+	    ret = ring_queue_push(&recv->recv_msg_queue, data);
+	    if (ret < 0)
+	    {
+	        usleep(i);
+	        continue;
+	    }
+	    else
+	    {
+	        break;
+	    }	
+	}
+    if (ret < 0)
+    {
+		pthread_mutex_unlock(&(recv->mutex_recv));
+		return (-2);
+    }
+    else
+    {
+		volatile unsigned int *task_num = &recv->recv_msg_num;
+    	fetch_and_add(task_num, 1);
+    }
+    pthread_mutex_unlock(&(recv->mutex_recv));
+	pthread_cond_signal(&(recv->cond_recv));
+	return(0);
+}
+
+
+
+
+/*套接字字要设置成非阻塞模式*/
+static int recv_socket_fun(void * arg,int socketfd)
 {
 	if(NULL == arg)
 	{
@@ -94,39 +159,41 @@ static int recv_socket_fun(void * arg)
 		return(-1);
 	}
 	net_recv_handle_t  * handle = (net_recv_handle_t*)arg;
-	/*套接字字要设置成非阻塞模式*/
 
-	struct sockaddr_in from;
-	socklen_t addr_len;
-	int len = 0;
-	char buff[1500];
-	len = recvfrom(handle->recv_socket,buff,sizeof(buff), 0 , (struct sockaddr *)&from ,&addr_len); 
-	//if(len <= 0 )continue;
-	
-
-	return(0);
-}
-
-
-
-static int servce_socket_fun(void * arg)
-{
-	if(NULL == arg)
+	if(handle->recv_socket != socketfd && handle->servce_socket != socketfd )
 	{
-		dbg_printf("please check the param ! \n");
-		return(-1);
+		dbg_printf("unknow socketfd ! \n");
+		return(-2);
 	}
-	net_recv_handle_t  * handle = (net_recv_handle_t*)arg;
 
 	struct sockaddr_in from;
 	socklen_t addr_len;
 	int len = 0;
 	char buff[1500];
-	len = recvfrom(handle->servce_socket,buff,sizeof(buff), 0 , (struct sockaddr *)&from ,&addr_len); 
-	//if(len <= 0 )continue;
-	
+	packet_header_t * header = (packet_header_t*)(buff);
+	len = recvfrom(socketfd,buff,sizeof(buff), 0 , (struct sockaddr *)&from ,&addr_len); 
+	if(len <= 0 )
+	{
+		dbg_printf("the length is not right ! \n");
+		return(-2);
+	}
+	if(header->type <= DUMP_PACKET || header->type >= UNKNOW_PACKET || header->packet_len != len)
+	{
+		dbg_printf("the packet is not in the limit ! \n");
+		return(-3);
+	}
+
+	void * data = calloc(1,sizeof(char)*len+1);
+	if(NULL == data)
+	{
+		dbg_printf("calloc is fail ! \n");
+		return(-4);
+	}
+	memmove(data,buff,len);
+	netrecv_push_msg(data);
 	return(0);
 }
+
 
 
 
@@ -170,29 +237,63 @@ static void * recv_pthread(void * arg)
 			if(!(events[i].events & EPOLLIN))
 			{
 				dbg_printf("unknow events ! \n");
+				continue;
 			}
-
-			if(handle->recv_socket == events[i].data.fd)
+			if(handle->event_fd == events[i].data.fd)
 			{
-				recv_socket_fun(handle);
+				eventfd_clean(handle->event_fd);
 			}
-			else if(handle->servce_socket == events[i].data.fd)
+			else
 			{
-				servce_socket_fun(handle);	
-
+				recv_socket_fun(handle,events[i].data.fd);
 			}
-			else if(handle->event_fd == events[i].data.fd)
-			{
-				eventfd_clean(handle->event_fd);	
-
-			}
-			
-
 		}
 
 	}
-
 }
 
 
+
+
+
+
+static void *  netrecv_pthread_fun(void * arg)
+{
+	net_recv_handle_t * recv = (net_recv_handle_t * )arg;
+	if(NULL == recv)
+	{
+		dbg_printf("please check the param ! \n");
+		return(NULL);
+	}
+
+	int ret = -1;
+	int is_run = 1;
+	packet_header_t * header = NULL;
+	
+	while(is_run)
+	{
+        pthread_mutex_lock(&(recv->mutex_recv));
+        while (0 == recv->recv_msg_num)
+        {
+            pthread_cond_wait(&(recv->cond_recv), &(recv->mutex_recv));
+        }
+		ret = ring_queue_pop(&(recv->recv_msg_queue), (void **)&header);
+		pthread_mutex_unlock(&(recv->mutex_recv));
+		
+		volatile unsigned int *handle_num = &(recv->recv_msg_num);
+		fetch_and_sub(handle_num, 1);  
+
+		if(ret != 0 || NULL == header)continue;
+		
+
+
+		free(header);
+		header = NULL;
+
+
+	}
+
+	return(NULL);
+
+}
 
