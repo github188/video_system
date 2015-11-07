@@ -91,7 +91,6 @@ int  send_register_packet(void)
 
 
 
-
 int handle_packet_init(void)
 {
 	if(NULL != system_info)

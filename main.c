@@ -12,6 +12,11 @@
 #include "dev_camera.h"
 #include "video_encode.h"
 #include "start_up.h"
+#include "system_init.h"
+#include "net_send.h"
+#include "handle_packet.h"
+
+
 #include "common.h"
 
 #undef  	DBG_ON
@@ -48,7 +53,32 @@ int main(void)
 	dbg_printf("this is a test ! \n");
 	int ret  =-1;
 	
-	start_up();
+//	start_up();
+	
+	ret = system_init();
+	if(ret != 0)
+	{
+		dbg_printf("system_init is fail ! \n");
+		return(-1);
+	}
+	handle_packet_init();
+	netsend_start_up();
+	
+	
+	sleep(1);
+
+	
+
+	while(1)
+	{
+		send_register_packet();
+		sleep(10);
+	}
+		
+	
+	
+
+	
 
 
 	return  0;

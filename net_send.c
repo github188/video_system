@@ -172,7 +172,6 @@ static void *  netsend_pthread_fun(void * arg)
 		
 		if(!packet->is_resend && RELIABLE_PACKET == packet->type)
 		{
-			
 			packet_header_t * head = (packet_header_t*)packet->data;
 			head->index = send->packet_num;
 			packet->index = send->packet_num;
@@ -181,6 +180,7 @@ static void *  netsend_pthread_fun(void * arg)
 			if(send->packet_num >= RESEND_PACKET_MAX_NUM)
 				send->packet_num = 0;
 		}
+
 		
 		while(count_send --)
 		{
@@ -213,19 +213,26 @@ static void *  netsend_pthread_fun(void * arg)
 			get_time(&time_pass);
 			if(packet->is_resend)
 			{
+				dbg_printf("resend ! \n");
 				pthread_mutex_lock(&(send->mutex_resend));
 				if(packet->resend_times > RESEND_TIMES)
 				{
+
+					send->resend[packet->index] = NULL;
 					if(NULL != packet->data)
 					{
 						free(packet->data);
 						packet->data = NULL;
 					}
+
 					free(packet);
 					packet = NULL;	
-					send->resend[packet->index] = NULL;
+
+					
 					volatile unsigned int *handle_num = &(send->resend_msg_num);
 					fetch_and_sub(handle_num, 1);  
+					
+					dbg_printf("i free it ! \n");
 				}
 				else
 				{
@@ -238,6 +245,7 @@ static void *  netsend_pthread_fun(void * arg)
 			}
 			else
 			{
+				dbg_printf("new realiable packet come ! \n");
 				pthread_mutex_lock(&(send->mutex_resend));
 				if(NULL != send->resend[packet->index])
 				{

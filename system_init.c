@@ -59,6 +59,9 @@ static int system_socket_init(void * arg)
 		dbg_printf("create servce_socket  fail ! \n");
 		return(-3);
 	}
+	int optserver=1;
+	setsockopt(handle->servce_socket,SOL_SOCKET,SO_REUSEADDR,&optserver,sizeof(optserver));
+	
 	value = fcntl(handle->servce_socket,F_GETFL,0);
 	ret = fcntl(handle->servce_socket, F_SETFL, value|O_NONBLOCK);
 	if(ret < 0)
@@ -70,13 +73,14 @@ static int system_socket_init(void * arg)
 
 
 
+
+
 	handle->local_socket = socket(AF_INET, SOCK_DGRAM, 0);
 	if(handle->local_socket < 0)
 	{
 		dbg_printf("handle->local_socket  is fail ! \n");
 		return(-3);
 	}
-
 
 	value = fcntl(handle->local_socket,F_GETFL,0);
 	ret = fcntl(handle->local_socket, F_SETFL, value|O_NONBLOCK);
@@ -89,6 +93,9 @@ static int system_socket_init(void * arg)
 	int buffer_size = 32*1024;
 	setsockopt(handle->local_socket, SOL_SOCKET, SO_RCVBUF, (char*)&buffer_size, sizeof(buffer_size));
 	setsockopt(handle->local_socket, SOL_SOCKET, SO_SNDBUF, (char*)&buffer_size, sizeof(buffer_size));
+	int optlocal=1;
+	setsockopt(handle->local_socket,SOL_SOCKET,SO_REUSEADDR,&optlocal,sizeof(optlocal));
+
 	fcntl(handle->local_socket, F_SETFD, FD_CLOEXEC);
 
 	struct sockaddr_in	local_addr;
