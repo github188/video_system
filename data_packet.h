@@ -65,6 +65,13 @@ typedef struct register_packet
 }register_packet_t;
 
 
+typedef struct register_ask_packet
+{
+	packet_header_t head;
+	char x;
+}register_ask_packet_t;
+
+
 
 
 
