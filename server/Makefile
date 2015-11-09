@@ -6,7 +6,7 @@
 CC = gcc
 
 
-LOCAL_INC =  -I ./   
+LOCAL_INC =  -I ./   -I../
 
 LOCAL_LIB =    -lpthread   -lrt
 LOCAL_SRC =  .

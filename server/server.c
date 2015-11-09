@@ -431,10 +431,108 @@ fail:
 }
 
 
+static int  handle_peer_packet(void * pdata)
+{
+
+
+	int ret = -1;
+	int flag = 0;
+	if(NULL == pdata ||  NULL==handle)
+	{
+		dbg_printf("please check the param ! \n");
+		goto fail;
+	}
+
+	peer_packet_t * packet = (peer_packet_t*)(pdata);
+	packet_header_t * header =	(packet_header_t*)packet; 
+
+	if(header->type != PEER_PACKET)
+	{
+		dbg_printf("this is not the right packet ! \n");
+		return(-2);
+	}
+
+	char * pchar = strchr(packet->dev_name,'_');
+	
+	if(NULL == pchar || 0==is_digit(pchar+1))
+	{
+		dbg_printf("the dev name is not right ! \n");
+		flag = 1;
+	}
+	int dev_index = atoi(pchar+1);
+	if(dev_index >= DEVICE_MAX_NUM)
+	{
+		dbg_printf("the dev name out of the limit ! \n");
+		flag = 2;
+	}
+
+	if(NULL ==handle->dev[dev_index] || 0==handle->dev[dev_index]->is_run)
+	{
+		flag = 3;	
+	}
+
+	peer_ask_packet_t * rpacket = calloc(1,sizeof(*rpacket));
+	if(NULL == rpacket)
+	{
+		dbg_printf("calloc is fail ! \n");
+		goto fail;
+	}
+	send_packet_t *spacket = calloc(1,sizeof(*spacket));
+	if(NULL == spacket)
+	{
+		dbg_printf("calloc is fail ! \n");
+		goto fail;
+	}
+	rpacket->head.type = PEER_PACKET_ASK;
+	rpacket->head.index = packet->head.index;
+	rpacket->head.packet_len = sizeof(rpacket->dev_addr);
+	rpacket->head.ret = flag;
+	rpacket->dev_addr = handle->dev[dev_index]->dev_addr;
+
+	
+	spacket->sockfd = handle->server_socket;
+	spacket->data = rpacket;
+	spacket->length = sizeof(peer_ask_packet_t);
+	spacket->to = *(struct sockaddr*)(packet+1);
+
+	spacket->type = UNRELIABLE_PACKET;
+	ret = server_push_sendmsg(spacket);
+	
+	if(ret != 0)
+	{
+		dbg_printf("netsend_push_msg is fail ! \n");
+		goto fail;
+	}
+
+
+	return(0);
+
+fail:
+
+
+	if(NULL != rpacket)
+	{
+		free(rpacket);
+		rpacket = NULL;
+	}
+
+	if(NULL != spacket)
+	{
+		free(spacket);
+		spacket = NULL;
+	}
+
+	return(-1);
+	
+}
+
+
 static handle_fun_t pfun_system[] = {
 
 	{REGISTER_PACKET,handle_register_packet},
 	{REGISTER_PACKET_ASK,NULL},
+	{PEER_PACKET,handle_peer_packet},
+	{PEER_PACKET_ASK,NULL},
 	{LOIN_PACKET,NULL},
 	{LOIN_PACKET_ASK,NULL},
 	{BEATHEART_PACKET,NULL},

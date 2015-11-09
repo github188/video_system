@@ -11,7 +11,6 @@
 #include <sys/time.h>
 #include <time.h>
 #include <sys/epoll.h>
-#include <pthread.h>
 
 
 #include "eventfd.h"
@@ -68,14 +67,14 @@ int net_recv_init(void)
 		return(-1);
 	}
 
-	recv_handle = calloc(1,sizeof(*recv_handle));
+	recv_handle = (net_recv_handle_t*)calloc(1,sizeof(*recv_handle));
 	if(NULL == recv_handle)
 	{
 		dbg_printf("calloc is fail ! \n");
 		return(-2);
 	}
 
-
+	system_handle_t * syshandle = NULL;
 	recv_handle->event_fd = eventfd_new();
 	if(recv_handle->event_fd < 0)
 	{
@@ -84,7 +83,7 @@ int net_recv_init(void)
 	}
 
 
-	system_handle_t * syshandle = (system_handle_t*)system_gethandle();
+	syshandle = (system_handle_t*)system_gethandle();
 	if(NULL == syshandle)
 	{
 		dbg_printf("get syshandle is fail ! \n");
@@ -210,14 +209,14 @@ static int recv_socket_fun(void * arg,int socketfd)
 		return(-3);
 	}
 
-	void * data = calloc(1,sizeof(char)*len+sizeof(struct sockaddr_in)+1);
+	void * data = (net_recv_handle_t*)calloc(1,sizeof(char)*len+sizeof(struct sockaddr_in)+1);
 	if(NULL == data)
 	{
 		dbg_printf("calloc is fail ! \n");
 		return(-4);
 	}
 	memmove(data,buff,len);
-	memmove(data+sizeof(char)*len,&from,sizeof(struct sockaddr_in));
+	memmove(((char*)data+sizeof(char)*len),&from,sizeof(struct sockaddr_in));
 	ret = netrecv_push_msg(data);
 	if(ret < 0 )
 	{
@@ -299,7 +298,9 @@ static void * recv_pthread(void * arg)
 static handle_recvfun_t pfun_recvsystem[] = {
 
 	{REGISTER_PACKET,NULL},
-	{REGISTER_PACKET_ASK,handle_register_ask},
+	{REGISTER_PACKET_ASK,NULL},
+	{PEER_PACKET,NULL},
+	{PEER_PACKET_ASK,handle_peer_ask},
 	{LOIN_PACKET,NULL},
 	{LOIN_PACKET_ASK,NULL},
 	{BEATHEART_PACKET,NULL},

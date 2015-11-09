@@ -40,6 +40,8 @@ typedef enum
 	DUMP_PACKET = 100,
 	REGISTER_PACKET,
 	REGISTER_PACKET_ASK,
+	PEER_PACKET,
+	PEER_PACKET_ASK,
 	LOIN_PACKET,
 	LOIN_PACKET_ASK,
 	BEATHEART_PACKET,
@@ -73,6 +75,20 @@ typedef struct register_ask_packet
 	char x;
 	char dev_name[64];
 }register_ask_packet_t;
+
+
+typedef struct peer_packet
+{
+	packet_header_t head;
+	char dev_name[64];
+}peer_packet_t;
+
+
+typedef struct peer_ask_packet
+{
+	packet_header_t head;
+	struct sockaddr dev_addr;
+}peer_ask_packet_t;
 
 
 

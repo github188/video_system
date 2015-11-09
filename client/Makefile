@@ -6,15 +6,22 @@ CC = g++
 
 
 
-LOCAL_INC =  -I./include   -I./     -L./lib
+LOCAL_INC =  -I./include   -I./  -I../    -L./lib
 
-LOCAL_LIB =    -lpthread  -lavcodec  -lavutil
+LOCAL_LIB =    -lpthread  -lrt
 LOCAL_SRC =  .
 
 
 
 
 LOCAL_DEV_SRC := \
+		$(LOCAL_SRC)/ring_queue.cpp \
+		$(LOCAL_SRC)/time_unitl.cpp \
+		$(LOCAL_SRC)/system_init.cpp \
+		$(LOCAL_SRC)/net_send.cpp \
+		$(LOCAL_SRC)/net_recv.cpp \
+		$(LOCAL_SRC)/handle_packet.cpp \
+		$(LOCAL_SRC)/eventfd.cpp \
 		$(LOCAL_SRC)/main.cpp	
 
 
