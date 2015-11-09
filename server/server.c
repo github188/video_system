@@ -411,7 +411,6 @@ static int  handle_register_packet(void * pdata)
 
 	return(0);
 
-
 fail:
 
 
@@ -814,10 +813,6 @@ int main(int argc,char * argv[])
 			}
 
 		}
-
-
-
-
 	}
 
 	pthread_join(process_packet_pthed,NULL);
