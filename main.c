@@ -14,6 +14,7 @@
 #include "start_up.h"
 #include "system_init.h"
 #include "net_send.h"
+#include "net_recv.h"
 #include "handle_packet.h"
 
 
@@ -63,6 +64,7 @@ int main(void)
 	}
 	handle_packet_init();
 	netsend_start_up();
+	netrecv_start_up();
 	
 	
 	sleep(1);

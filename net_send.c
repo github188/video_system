@@ -18,6 +18,7 @@
 #include "time_unitl.h"
 
 
+
 #include "common.h"
 
 #undef  	DBG_ON
@@ -91,6 +92,51 @@ static int netsend_handle_init(void)
 }
 
 
+
+
+
+
+int netsend_remove_packet(int index)
+{
+
+	if(RESEND_PACKET_MAX_NUM < index || NULL == send_handle)
+	{
+		dbg_printf("check the param ! \n");
+		return(-1);
+	}
+
+	net_send_handle_t * send = send_handle;
+	send_packet_t * packet = NULL;
+	
+	pthread_mutex_lock(&(send->mutex_resend));
+	if(NULL == send->resend[index])
+	{
+		pthread_mutex_unlock(&(send->mutex_resend));
+		return(-2);
+	}
+
+	dbg_printf("netsend_remove_packet ! \n");
+	packet = (send_packet_t*)send->resend[index];
+	send->resend[index] = NULL;
+	if(NULL != packet->data)
+	{
+		free(packet->data);
+		packet->data = NULL;
+	}
+
+	if(NULL != packet)
+	{
+		free(packet);
+		packet = NULL;	
+	}
+	volatile unsigned int *handle_num = &(send->resend_msg_num);
+	fetch_and_sub(handle_num, 1);  
+		
+	pthread_mutex_unlock(&(send->mutex_resend));
+
+	
+	return(0);
+}
 
 int  netsend_push_msg(void * data )
 {
@@ -331,7 +377,6 @@ static void *  netresend_pthread_fun(void * arg)
 
 		usleep(100*1000);
 
-
 	}
 
 	return(NULL);
@@ -360,3 +405,7 @@ int  netsend_start_up(void)
 	
 
 }
+
+
+
+

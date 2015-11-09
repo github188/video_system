@@ -289,7 +289,7 @@ static int  handle_register_packet(void * pdata)
 
 	register_packet_t * packet = (register_packet_t*)(pdata);
 	packet_header_t * header =	(packet_header_t*)packet; 
-	#if 1
+	#if 0
 		dbg_printf("type %d  index==%d length==%d \n",header->type,header->index,header->packet_len);
 		register_packet_t * reg = (register_packet_t*)header;
 		dbg_printf("the char is %c \n",reg->x);
@@ -300,7 +300,6 @@ static int  handle_register_packet(void * pdata)
 		dbg_printf("this is not the right packet ! \n");
 		return(-2);
 	}
-
 
 	register_ask_packet_t * rpacket = calloc(1,sizeof(*rpacket));
 	if(NULL == rpacket)
@@ -315,7 +314,7 @@ static int  handle_register_packet(void * pdata)
 		goto fail;
 	}
 	rpacket->head.type = REGISTER_PACKET_ASK;
-	rpacket->head.index = 0xFFFF;
+	rpacket->head.index = packet->head.index;
 	rpacket->head.packet_len = sizeof(rpacket->x);
 	rpacket->x = 'r'+1;
 	
@@ -324,13 +323,7 @@ static int  handle_register_packet(void * pdata)
 	spacket->length = sizeof(register_ask_packet_t);
 	spacket->to = *(struct sockaddr*)(packet+1);
 
-
-	spacket->type = RELIABLE_PACKET;
-	spacket->is_resend = 0;
-	spacket->resend_times = 0;
-	spacket->index = 0xFFFF;
-	spacket->ta.tv_sec = 0;
-	spacket->ta.tv_usec = 200*1000;
+	spacket->type = UNRELIABLE_PACKET;
 	ret = server_push_sendmsg(spacket);
 	
 	if(ret != 0)
@@ -406,7 +399,11 @@ static void *  server_recv_pthread(void * arg)
 		for(i=0;i<sizeof(pfun_system)/sizeof(pfun_system[0]);++i)
 		{
 			if(header->type != pfun_system[i].type)continue;
-			pfun_system[i].handle_packet(header);
+			if(NULL != pfun_system[i].handle_packet)
+			{
+				pfun_system[i].handle_packet(header);
+		
+			}
 		}
 
 		if(NULL != header)
@@ -528,6 +525,7 @@ static void * server_send_pthread(void * arg)
 		while(count_send --)
 		{
 			ret = sendto(packet->sockfd,packet->data,packet->length,0,(struct sockaddr *)&packet->to,addr_len);
+			dbg_printf("ret =====  %d \n",ret);
 			if(-1 == ret)
 			{
 				if(errno == EINTR || errno == EAGAIN)
@@ -727,7 +725,6 @@ int main(int argc,char * argv[])
 		for(i=0;i<nevents;++i)
 		{
 
-			dbg_printf("epoll_wait is out ! \n");
 			if(!(events[i].events & EPOLLIN))
 			{
 				dbg_printf("unknow events ! \n");
@@ -735,7 +732,6 @@ int main(int argc,char * argv[])
 			}
 			if(handle->server_socket == events[i].data.fd)
 			{
-				dbg_printf("the data is coming123 ! \n");
 				server_disperse_packets(handle);
 
 			}

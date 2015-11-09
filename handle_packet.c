@@ -80,7 +80,6 @@ int  send_register_packet(void)
 	}
 
 
-
 	return(0);
 fail:
 
@@ -95,14 +94,24 @@ fail:
 		free(spacket);
 		spacket = NULL;
 	}
-
-
-
-	
 	return(0);
 }
 
 
+
+int  handle_register_ask(void * arg)
+{
+
+	register_ask_packet_t * packet = (register_ask_packet_t*)arg;
+	if(NULL == packet)
+	{
+		dbg_printf("the packet is not right ! \n");
+		return(-1);
+	}
+	netsend_remove_packet(packet->head.index);
+	
+	return(0);
+}
 
 
 int handle_packet_init(void)

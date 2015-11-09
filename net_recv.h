@@ -5,6 +5,8 @@
 
 
 
+int netrecv_start_up(void);
+
 
 
 #endif  /*_net_recv_h*/
