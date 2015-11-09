@@ -53,7 +53,7 @@ typedef struct packet_header
 {
 	packet_type_m type;
 	unsigned packet_len;
-	long index;
+	int index;
 }packet_header_t;
 
 

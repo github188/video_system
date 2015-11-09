@@ -27,7 +27,7 @@
 static system_handle_t * system_info = NULL;
 
 
-
+/*type 101  index==489626271745 length==1 total_length==16*/
 
 int  send_register_packet(void)
 {
@@ -46,14 +46,14 @@ int  send_register_packet(void)
 	if(NULL == rpacket)
 	{
 		dbg_printf("calloc is fail ! \n");
-		return(-1);
+		goto fail;
 	}
 
 	send_packet_t *spacket = calloc(1,sizeof(*spacket));
 	if(NULL == spacket)
 	{
 		dbg_printf("calloc is fail ! \n");
-		return(-2);
+		goto fail;
 	}
 
 	rpacket->head.type = REGISTER_PACKET;
@@ -76,14 +76,28 @@ int  send_register_packet(void)
 	if(ret != 0)
 	{
 		dbg_printf("netsend_push_msg is fail ! \n");
+		goto fail;
+	}
+
+
+
+	return(0);
+fail:
+
+	if(NULL != rpacket)
+	{
 		free(rpacket);
 		rpacket = NULL;
+	}
 
+	if(NULL != spacket)
+	{
 		free(spacket);
 		spacket = NULL;
-
-		return(-1);
 	}
+
+
+
 	
 	return(0);
 }

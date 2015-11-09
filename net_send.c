@@ -40,7 +40,7 @@ typedef struct net_send_handle
 
 	
 	void * resend[RESEND_PACKET_MAX_NUM];
-	volatile long packet_num; 
+	volatile int packet_num; 
 	pthread_mutex_t mutex_resend;
 	pthread_cond_t cond_resend;
 	volatile unsigned int resend_msg_num;
