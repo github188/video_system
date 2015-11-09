@@ -6,7 +6,7 @@
 CC = gcc
 
 
-LOCAL_INC =  -I ../   
+LOCAL_INC =  -I ./   
 
 LOCAL_LIB =    -lpthread   -lrt
 LOCAL_SRC =  .
@@ -15,8 +15,8 @@ LOCAL_SRC =  .
 
 
 LOCAL_DEV_SRC := \
-		../ring_queue.c	\
-		../time_unitl.c \
+		$(LOCAL_SRC)/ring_queue.c	\
+		$(LOCAL_SRC)/time_unitl.c \
 		$(LOCAL_SRC)/server.c	
 
 all:

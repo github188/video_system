@@ -501,8 +501,6 @@ static void *  server_recv_pthread(void * arg)
 
 
 
-
-
 static int server_disperse_packets(void * arg)
 {
 	if(NULL == arg)
