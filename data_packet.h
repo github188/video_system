@@ -54,6 +54,7 @@ typedef struct packet_header
 	packet_type_m type;
 	unsigned packet_len;
 	int index;
+	char ret;
 }packet_header_t;
 
 
@@ -62,6 +63,7 @@ typedef struct register_packet
 {
 	packet_header_t head;
 	char x;
+	char dev_name[64];
 }register_packet_t;
 
 
@@ -69,6 +71,7 @@ typedef struct register_ask_packet
 {
 	packet_header_t head;
 	char x;
+	char dev_name[64];
 }register_ask_packet_t;
 
 

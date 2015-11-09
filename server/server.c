@@ -32,6 +32,18 @@
 #define	 SERVER_PORT	(8003u)
 
 
+#define	 DEVICE_MAX_NUM			(4096u)
+
+
+typedef  struct  dev_info
+{
+	int is_run;
+	struct sockaddr dev_addr;
+	char dev_name[60];
+	
+}dev_info_t;
+
+
 typedef struct handle_fun
 {
 	packet_type_m type;
@@ -60,6 +72,8 @@ typedef struct server_handle
 	pthread_mutex_t mutex_resend;
 	pthread_cond_t cond_resend;
 	volatile unsigned int resend_msg_num;
+
+	dev_info_t * dev[DEVICE_MAX_NUM];
 	
 }server_handle_t;
 
@@ -171,11 +185,36 @@ static int server_init(void)
 	 handle->resend_msg_num = 0;
 
 
+	 
+	
+	for(i=0;i<DEVICE_MAX_NUM;++i)
+	{
+		handle->dev[i] = calloc(1,sizeof(dev_info_t));
+		if(NULL == handle->dev[i])
+		{
+			dbg_printf("calloc is fail ! \n");
+			goto fail;
+		}
+		handle->dev[i]->is_run = 0;
+	}
+		
+
+
 	
 	return(0);
 
 fail:
 
+
+	for(i=0;i<DEVICE_MAX_NUM;++i)
+	{
+		if(NULL != handle->dev[i])
+		{
+			free(handle->dev[i]);
+			handle->dev[i] = NULL;
+		}
+	}
+	
 	if(NULL != handle)
 	{
 		free(handle);
@@ -274,6 +313,18 @@ int  server_push_sendmsg(void * data )
 
 
 
+static int is_digit(char * str)
+{
+	int i = 0;
+	if(NULL == str)return(0);
+
+	for(i=0;i<strlen(str);++i)
+	{
+		if(str[i] >= '0' && str[i] <='9')continue;
+		return(0);
+	}
+	return(1);
+}
 
 
 static int  handle_register_packet(void * pdata)
@@ -281,6 +332,7 @@ static int  handle_register_packet(void * pdata)
 
 
 	int ret = -1;
+	int flag = 0;
 	if(NULL == pdata ||  NULL==handle)
 	{
 		dbg_printf("please check the param ! \n");
@@ -289,16 +341,38 @@ static int  handle_register_packet(void * pdata)
 
 	register_packet_t * packet = (register_packet_t*)(pdata);
 	packet_header_t * header =	(packet_header_t*)packet; 
-	#if 0
-		dbg_printf("type %d  index==%d length==%d \n",header->type,header->index,header->packet_len);
-		register_packet_t * reg = (register_packet_t*)header;
-		dbg_printf("the char is %c \n",reg->x);
 
-	#endif
 	if('r' != packet->x || header->type != REGISTER_PACKET)
 	{
 		dbg_printf("this is not the right packet ! \n");
 		return(-2);
+	}
+
+	char * pchar = strchr(packet->dev_name,'_');
+	
+	if(NULL == pchar || 0==is_digit(pchar+1))
+	{
+		dbg_printf("the dev name is not right ! \n");
+		flag = 1;
+	}
+	int dev_index = atoi(pchar+1);
+	if(dev_index >= DEVICE_MAX_NUM)
+	{
+		dbg_printf("the dev name out of the limit ! \n");
+		flag = 2;
+	}
+	if(handle->dev[dev_index]->is_run)
+	{
+		dbg_printf("the dev has been register ! \n");
+		flag = 3;
+	}
+
+	if(0 == flag)
+	{
+		handle->dev[dev_index]->is_run = 1;
+		handle->dev[dev_index]->dev_addr = *(struct sockaddr*)(packet+1);
+		memmove(handle->dev[dev_index]->dev_name,packet->dev_name,sizeof(handle->dev[dev_index]->dev_name));
+		dbg_printf("the dev name is %s \n",handle->dev[dev_index]->dev_name);
 	}
 
 	register_ask_packet_t * rpacket = calloc(1,sizeof(*rpacket));
@@ -316,7 +390,10 @@ static int  handle_register_packet(void * pdata)
 	rpacket->head.type = REGISTER_PACKET_ASK;
 	rpacket->head.index = packet->head.index;
 	rpacket->head.packet_len = sizeof(rpacket->x);
+	rpacket->head.ret = flag;
 	rpacket->x = 'r'+1;
+	memset(rpacket->dev_name,'\0',sizeof(rpacket->dev_name));
+	memmove(rpacket->dev_name,packet->dev_name,sizeof(rpacket->dev_name));
 	
 	spacket->sockfd = handle->server_socket;
 	spacket->data = rpacket;

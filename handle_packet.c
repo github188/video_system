@@ -61,6 +61,9 @@ int  send_register_packet(void)
 	rpacket->head.packet_len = sizeof(rpacket->x);
 	rpacket->x = 'r';
 
+	memset(rpacket->dev_name,'\0',sizeof(rpacket->dev_name));
+	strcpy(rpacket->dev_name,"camera_0");
+
 	spacket->sockfd = handle->servce_socket;
 	spacket->data = rpacket;
 	spacket->length = sizeof(register_packet_t);
