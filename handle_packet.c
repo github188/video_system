@@ -15,6 +15,7 @@
 #include "system_init.h"
 #include "data_packet.h"
 #include "net_send.h"
+#include "process_loin.h"
 
 
 #undef  	DBG_ON
@@ -27,7 +28,6 @@
 static system_handle_t * system_info = NULL;
 
 
-/*type 101  index==489626271745 length==1 total_length==16*/
 
 int  send_register_packet(void)
 {
@@ -105,7 +105,9 @@ fail:
 int  handle_register_ask(void * arg)
 {
 
-	register_ask_packet_t * packet = (register_ask_packet_t*)arg;
+	struct sockaddr * src_addres = (struct sockaddr *)arg;
+	packet_header_t * header =	(packet_header_t *)(src_addres+1); 
+	register_ask_packet_t * packet = (register_ask_packet_t*)(header);
 	if(NULL == packet)
 	{
 		dbg_printf("the packet is not right ! \n");
@@ -116,6 +118,168 @@ int  handle_register_ask(void * arg)
 	return(0);
 }
 
+
+
+int  handle_hole_ask(void * arg)
+{
+
+
+	int ret = -1;
+
+	system_handle_t * handle =system_info;
+	struct sockaddr * src_addres = (struct sockaddr *)arg;
+	packet_header_t * header =	(packet_header_t *)(src_addres+1); 
+	hole_packet_t * packet = (hole_packet_t*)(header);
+	
+	if(NULL == handle || NULL==packet)
+	{
+		dbg_printf("check the param ! \n");
+		return(-1);
+	}
+
+
+	hole_packet_ask_t * rpacket = calloc(1,sizeof(*rpacket));
+	if(NULL == rpacket)
+	{
+		dbg_printf("calloc is fail ! \n");
+		goto fail;
+	}
+
+	send_packet_t *spacket = calloc(1,sizeof(*spacket));
+	if(NULL == spacket)
+	{
+		dbg_printf("calloc is fail ! \n");
+		goto fail;
+	}
+
+	rpacket->head.type = HOLE_PACKET_ASK;
+	rpacket->head.index = packet->head.index;
+	rpacket->head.packet_len = sizeof(rpacket->dev_addr);
+	rpacket->dev_addr = packet->dev_addr;
+
+
+	spacket->sockfd = handle->servce_socket;
+	spacket->data = rpacket;
+	spacket->length = sizeof(loin_packet_ask_t);
+	spacket->to = handle->servaddr;
+
+	spacket->type = UNRELIABLE_PACKET;
+	
+	ret = netsend_push_msg(spacket);
+	if(ret != 0)
+	{
+		dbg_printf("netsend_push_msg is fail ! \n");
+		goto fail;
+	}
+
+
+	loin_start_process(&packet->dev_addr);
+
+	
+	return(0);
+fail:
+
+	if(NULL != rpacket)
+	{
+		free(rpacket);
+		rpacket = NULL;
+	}
+
+	if(NULL != spacket)
+	{
+		free(spacket);
+		spacket = NULL;
+	}
+	return(0);
+}
+
+
+
+
+int send_active_channel_packet(void * dest_addr)
+{
+
+
+	int ret = -1;
+
+	system_handle_t * handle =system_info;
+	struct sockaddr * addr = (struct sockaddr*)(dest_addr);
+	if(NULL == system_info || NULL==addr)
+	{
+		dbg_printf("check the param ! \n");
+		return(-1);
+	}
+
+
+	active_channle_t * rpacket = calloc(1,sizeof(*rpacket));
+	if(NULL == rpacket)
+	{
+		dbg_printf("calloc is fail ! \n");
+		goto fail;
+	}
+
+	send_packet_t *spacket = calloc(1,sizeof(*spacket));
+	if(NULL == spacket)
+	{
+		dbg_printf("calloc is fail ! \n");
+		goto fail;
+	}
+
+	rpacket->head.type = ACTIVE_CHANNEL_PACKET;
+	rpacket->head.index = 0xFFFF;
+	rpacket->head.packet_len = sizeof(rpacket->a);
+
+
+	spacket->sockfd = handle->servce_socket;
+	spacket->data = rpacket;
+	spacket->length = sizeof(active_channle_t);
+	spacket->to = *addr;
+
+	spacket->type = UNRELIABLE_PACKET;
+	
+	ret = netsend_push_msg(spacket);
+	if(ret != 0)
+	{
+		dbg_printf("netsend_push_msg is fail ! \n");
+		goto fail;
+	}
+
+
+	return(0);
+fail:
+
+	if(NULL != rpacket)
+	{
+		free(rpacket);
+		rpacket = NULL;
+	}
+
+	if(NULL != spacket)
+	{
+		free(spacket);
+		spacket = NULL;
+	}
+	return(0);
+}
+
+
+int  handle_active_channel_ask(void * arg)
+{
+
+	struct sockaddr * src_addres = (struct sockaddr *)arg;
+	packet_header_t * header =	(packet_header_t *)(src_addres+1); 
+	active_channle_ask_t * packet = (active_channle_ask_t*)(header);
+	
+	if(NULL == packet)
+	{
+		dbg_printf("the packet is not right ! \n");
+		return(-1);
+	}
+	loin_stop_process(NULL);
+	dbg_printf("handle_active_channel_ask ! \n");
+	
+	return(0);
+}
 
 int handle_packet_init(void)
 {

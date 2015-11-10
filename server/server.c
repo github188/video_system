@@ -21,7 +21,7 @@
 #undef  DBG_ON
 #undef  FILE_NAME
 #define 	DBG_ON  	(0x01)
-#define 	FILE_NAME 	"01_udp_server:"
+#define 	FILE_NAME 	"server:"
 
 
 
@@ -83,8 +83,78 @@ static server_handle_t * handle = NULL;
 
 
 
+#if 1
+
+char * netlib_sock_ntop(struct sockaddr *sa)
+{
+
+	if(NULL == sa  )
+	{
+		dbg_printf("check the param \n");
+		return(NULL);
+	}
+	#define  DATA_LENGTH	128
+	
+	char * str  = calloc(1,sizeof(char)*DATA_LENGTH);
+	if(NULL == str)
+	{
+		dbg_printf("calloc is fail\n");
+		return(NULL);
+	}
+
+	switch(sa->sa_family)
+	{
+		case AF_INET:
+		{
+
+			struct sockaddr_in * sin = (struct sockaddr_in*)sa;
+
+			if(inet_ntop(AF_INET,&(sin->sin_addr),str,DATA_LENGTH) == NULL)
+			{
+				free(str);
+				str = NULL;
+				return(NULL);	
+			}
+			return(str);
+
+		}
+		default:
+		{
+			free(str);
+			str = NULL;
+			return(NULL);
+		}
 
 
+	}
+			
+    return (NULL);
+}
+
+
+int  netlib_sock_get_port(const struct sockaddr *sa)
+{
+	if(NULL == sa)
+	{
+		dbg_printf("check the param\n");
+		return(-1);
+	}
+	switch (sa->sa_family)
+	{
+		case AF_INET: 
+		{
+			struct sockaddr_in	*sin = (struct sockaddr_in *) sa;
+
+			return(ntohs(sin->sin_port));
+		}
+
+
+	}
+
+    return(-1);
+}
+
+#endif
 
 
 static int server_socket_init(void * arg)
@@ -312,6 +382,48 @@ int  server_push_sendmsg(void * data )
 }
 
 
+int netsend_remove_packet(int index)
+{
+
+	if(RESEND_PACKET_MAX_NUM < index || NULL == handle)
+	{
+		dbg_printf("check the param ! \n");
+		return(-1);
+	}
+
+	server_handle_t * send = handle;
+	send_packet_t * packet = NULL;
+	
+	pthread_mutex_lock(&(send->mutex_resend));
+	if(NULL == send->resend[index])
+	{
+		pthread_mutex_unlock(&(send->mutex_resend));
+		return(-2);
+	}
+
+	dbg_printf("netsend_remove_packet ! \n");
+	packet = (send_packet_t*)send->resend[index];
+	send->resend[index] = NULL;
+	if(NULL != packet->data)
+	{
+		free(packet->data);
+		packet->data = NULL;
+	}
+
+	if(NULL != packet)
+	{
+		free(packet);
+		packet = NULL;	
+	}
+	volatile unsigned int *handle_num = &(send->resend_msg_num);
+	fetch_and_sub(handle_num, 1);  
+		
+	pthread_mutex_unlock(&(send->mutex_resend));
+
+	
+	return(0);
+}
+
 
 static int is_digit(char * str)
 {
@@ -339,9 +451,26 @@ static int  handle_register_packet(void * pdata)
 		goto fail;
 	}
 
-	register_packet_t * packet = (register_packet_t*)(pdata);
-	packet_header_t * header =	(packet_header_t*)packet; 
+	struct sockaddr * src_addres = (struct sockaddr *)pdata;
+	packet_header_t * header =	(packet_header_t *)(src_addres+1); 
+	register_packet_t * packet = (register_packet_t*)(header);
+	#if 1
+	char * ipdev = NULL;
+	int port_dev = 0;
+	ipdev = netlib_sock_ntop(src_addres);
+	if(NULL != ipdev)
+	{
+		dbg_printf("the dev_ip is %s \n",ipdev);
+		free(ipdev);
+		ipdev = NULL;
+	}
 
+	port_dev = netlib_sock_get_port(src_addres);
+	dbg_printf("the dev port is %d \n",port_dev);
+	
+
+	#endif
+	
 	if('r' != packet->x || header->type != REGISTER_PACKET)
 	{
 		dbg_printf("this is not the right packet ! \n");
@@ -370,7 +499,7 @@ static int  handle_register_packet(void * pdata)
 	if(0 == flag)
 	{
 		handle->dev[dev_index]->is_run = 1;
-		handle->dev[dev_index]->dev_addr = *(struct sockaddr*)(packet+1);
+		handle->dev[dev_index]->dev_addr = *src_addres;
 		memmove(handle->dev[dev_index]->dev_name,packet->dev_name,sizeof(handle->dev[dev_index]->dev_name));
 		dbg_printf("the dev name is %s \n",handle->dev[dev_index]->dev_name);
 	}
@@ -398,7 +527,7 @@ static int  handle_register_packet(void * pdata)
 	spacket->sockfd = handle->server_socket;
 	spacket->data = rpacket;
 	spacket->length = sizeof(register_ask_packet_t);
-	spacket->to = *(struct sockaddr*)(packet+1);
+	spacket->to = *src_addres;
 
 	spacket->type = UNRELIABLE_PACKET;
 	ret = server_push_sendmsg(spacket);
@@ -443,8 +572,10 @@ static int  handle_peer_packet(void * pdata)
 		goto fail;
 	}
 
-	peer_packet_t * packet = (peer_packet_t*)(pdata);
-	packet_header_t * header =	(packet_header_t*)packet; 
+	struct sockaddr * src_addres = (struct sockaddr *)pdata;
+	packet_header_t * header =	(packet_header_t *)(src_addres+1); 
+	peer_packet_t * packet = (peer_packet_t*)(header);
+	
 
 	if(header->type != PEER_PACKET)
 	{
@@ -487,13 +618,15 @@ static int  handle_peer_packet(void * pdata)
 	rpacket->head.index = packet->head.index;
 	rpacket->head.packet_len = sizeof(rpacket->dev_addr);
 	rpacket->head.ret = flag;
+
+	if(0 == flag)
 	rpacket->dev_addr = handle->dev[dev_index]->dev_addr;
 
 	
 	spacket->sockfd = handle->server_socket;
 	spacket->data = rpacket;
 	spacket->length = sizeof(peer_ask_packet_t);
-	spacket->to = *(struct sockaddr*)(packet+1);
+	spacket->to = *src_addres;
 
 	spacket->type = UNRELIABLE_PACKET;
 	ret = server_push_sendmsg(spacket);
@@ -527,14 +660,249 @@ fail:
 }
 
 
+
+
+
+
+int send_hole_packet(struct sockaddr dev_addr,struct sockaddr to_addr)
+{
+
+	int ret = -1;
+	int flag = 0;
+	if(NULL==handle)
+	{
+		dbg_printf("please check the param ! \n");
+		return(-1);
+	}
+
+	hole_packet_t * rpacket = calloc(1,sizeof(*rpacket));
+	if(NULL == rpacket)
+	{
+		dbg_printf("calloc is fail ! \n");
+		goto fail;
+	}
+	send_packet_t *spacket = calloc(1,sizeof(*spacket));
+	if(NULL == spacket)
+	{
+		dbg_printf("calloc is fail ! \n");
+		goto fail;
+	}
+	rpacket->head.type = HOLE_PACKET;
+	rpacket->head.index = 0xFF;
+	rpacket->head.packet_len = sizeof(rpacket->dev_addr);
+	rpacket->head.ret = 0;
+	rpacket->dev_addr = dev_addr;
+
+	
+	spacket->sockfd = handle->server_socket;
+	spacket->data = rpacket;
+	spacket->length = sizeof(hole_packet_t);
+	spacket->to = to_addr;
+
+
+	spacket->type = RELIABLE_PACKET;
+	spacket->is_resend = 0;
+	spacket->resend_times = 0;
+	spacket->index = 0xFFFF;
+	spacket->ta.tv_sec = 0;
+	spacket->ta.tv_usec = 800*1000;
+	ret = server_push_sendmsg(spacket);
+
+
+	if(ret != 0)
+	{
+		dbg_printf("netsend_push_msg is fail ! \n");
+		goto fail;
+	}
+
+
+	return(0);
+
+fail:
+
+
+	if(NULL != rpacket)
+	{
+		free(rpacket);
+		rpacket = NULL;
+	}
+
+	if(NULL != spacket)
+	{
+		free(spacket);
+		spacket = NULL;
+	}
+
+	return(-1);
+
+
+}
+
+
+
+static int  handle_loin_packet(void * pdata)
+{
+
+
+	int ret = -1;
+	int flag = 0;
+	if(NULL == pdata ||  NULL==handle)
+	{
+		dbg_printf("please check the param ! \n");
+		goto fail;
+	}
+
+	struct sockaddr * src_addres = (struct sockaddr *)pdata;
+	packet_header_t * header =	(packet_header_t *)(src_addres+1); 
+	loin_packet_t * packet = (loin_packet_t*)(header);
+
+	#if 1
+	char * client_ip = NULL;
+	int client_dev = 0;
+	client_ip = netlib_sock_ntop(src_addres);
+	if(NULL != client_ip)
+	{
+		dbg_printf("the client_ip is %s \n",client_ip);
+		free(client_ip);
+		client_ip = NULL;
+	}
+
+	client_dev = netlib_sock_get_port(src_addres);
+	dbg_printf("the client port is %d \n",client_dev);
+	
+
+	#endif
+	
+	if(header->type != LOIN_PACKET)
+	{
+		dbg_printf("this is not the right packet ! \n");
+		return(-2);
+	}
+
+	char * pchar = strchr(packet->dev_name,'_');
+	
+	if(NULL == pchar || 0==is_digit(pchar+1))
+	{
+		dbg_printf("the dev name is not right ! \n");
+		flag = 1;
+		goto out;
+	}
+	int dev_index = atoi(pchar+1);
+	if(dev_index >= DEVICE_MAX_NUM)
+	{
+		dbg_printf("the dev name out of the limit ! \n");
+		flag = 2;
+		goto out;
+	}
+
+	if(NULL ==handle->dev[dev_index])
+	{
+		flag = 3;
+		goto out;
+	}
+
+	ret = memcmp(&((struct sockaddr_in *)&(handle->dev[dev_index]->dev_addr))->sin_addr,&((struct sockaddr_in *)&packet->dev_addr)->sin_addr,sizeof(struct in_addr));
+	if(ret != 0 )
+	{
+		flag = 4;
+		goto out;
+	}
+
+out:
+
+	ret = 0;
+	loin_packet_ask_t * rpacket = calloc(1,sizeof(*rpacket));
+	if(NULL == rpacket)
+	{
+		dbg_printf("calloc is fail ! \n");
+		goto fail;
+	}
+	send_packet_t *spacket = calloc(1,sizeof(*spacket));
+	if(NULL == spacket)
+	{
+		dbg_printf("calloc is fail ! \n");
+		goto fail;
+	}
+	rpacket->head.type = LOIN_PACKET_ASK;
+	rpacket->head.index = packet->head.index;
+	rpacket->head.packet_len = sizeof(rpacket->dev_addr);
+	rpacket->head.ret = flag;
+
+	if(0 == flag)
+	rpacket->dev_addr = handle->dev[dev_index]->dev_addr;
+
+	
+	spacket->sockfd = handle->server_socket;
+	spacket->data = rpacket;
+	spacket->length = sizeof(loin_packet_ask_t);
+	spacket->to =*src_addres;
+
+	spacket->type = UNRELIABLE_PACKET;
+	ret = server_push_sendmsg(spacket);
+	
+	if(ret != 0)
+	{
+		dbg_printf("netsend_push_msg is fail ! \n");
+		goto fail;
+	}
+
+	if(0 == flag)
+	{
+		send_hole_packet(*src_addres,packet->dev_addr);
+	}
+
+
+	return(0);
+
+fail:
+
+
+	if(NULL != rpacket)
+	{
+		free(rpacket);
+		rpacket = NULL;
+	}
+
+	if(NULL != spacket)
+	{
+		free(spacket);
+		spacket = NULL;
+	}
+
+	return(-1);
+	
+}
+
+
+int  handle_hole_ask(void * arg)
+{
+
+	struct sockaddr * src_addres = (struct sockaddr *)arg;
+	packet_header_t * header =	(packet_header_t *)(src_addres+1); 
+	hole_packet_ask_t * packet = (hole_packet_ask_t*)(header);
+	
+
+	if(NULL == packet)
+	{
+		dbg_printf("the packet is not right ! \n");
+		return(-1);
+	}
+	netsend_remove_packet(packet->head.index);
+	
+	return(0);
+}
+
+
 static handle_fun_t pfun_system[] = {
 
 	{REGISTER_PACKET,handle_register_packet},
 	{REGISTER_PACKET_ASK,NULL},
 	{PEER_PACKET,handle_peer_packet},
 	{PEER_PACKET_ASK,NULL},
-	{LOIN_PACKET,NULL},
+	{LOIN_PACKET,handle_loin_packet},
 	{LOIN_PACKET_ASK,NULL},
+	{HOLE_PACKET,NULL},
+	{HOLE_PACKET_ASK,handle_hole_ask},
 	{BEATHEART_PACKET,NULL},
 	{BEATHEART_PACKET_ASK,NULL},
 		
@@ -553,6 +921,7 @@ static void *  server_recv_pthread(void * arg)
 	int ret = -1;
 	int is_run = 1;
 	packet_header_t * header = NULL;
+	void * data;
 	int i = DUMP_PACKET;
 	
 	while(is_run)
@@ -562,28 +931,29 @@ static void *  server_recv_pthread(void * arg)
         {
             pthread_cond_wait(&(server->cond_server), &(server->mutex_server));
         }
-		ret = ring_queue_pop(&(server->server_msg_queue), (void **)&header);
+		ret = ring_queue_pop(&(server->server_msg_queue), (void **)&data);
 		pthread_mutex_unlock(&(server->mutex_server));
 		
 		volatile unsigned int *handle_num = &(server->server_msg_num);
 		fetch_and_sub(handle_num, 1);  
 		
-		if(ret != 0 || NULL == header)continue;
+		if(ret != 0 || NULL == data)continue;
 
+		header = (packet_header_t *)(data+sizeof(struct sockaddr));
 		for(i=0;i<sizeof(pfun_system)/sizeof(pfun_system[0]);++i)
 		{
 			if(header->type != pfun_system[i].type)continue;
 			if(NULL != pfun_system[i].handle_packet)
 			{
-				pfun_system[i].handle_packet(header);
+				pfun_system[i].handle_packet(data);
 		
 			}
 		}
 
-		if(NULL != header)
+		if(NULL != data)
 		{
-			free(header);
-			header = NULL;
+			free(data);
+			data = NULL;
 
 		}
 
@@ -607,8 +977,8 @@ static int server_disperse_packets(void * arg)
 		return(-1);
 	}
 	server_handle_t * server = (server_handle_t *)arg;
-	struct sockaddr_in from;
-	socklen_t addr_len;
+	struct sockaddr from;
+	socklen_t addr_len = sizeof(struct sockaddr);
 	int len = 0;
 	int ret = -1;
 	char buff[1500];
@@ -627,15 +997,16 @@ static int server_disperse_packets(void * arg)
 	}
 
 
-	void * data = calloc(1,sizeof(char)*len+sizeof(struct sockaddr_in)+1);
+	void * data = calloc(1,sizeof(struct sockaddr)+sizeof(char)*len+1);
 	if(NULL == data)
 	{
 		dbg_printf("calloc is fail ! \n");
 		return(-4);
 	}
-	memmove(data,buff,len);
-	memmove(data+sizeof(char)*len,&from,sizeof(struct sockaddr_in));
-
+	
+	memmove(data,&from,sizeof(struct sockaddr));
+	memmove((char*)data+sizeof(struct sockaddr),buff,len);
+	
 	ret = server_push_recvmsg(data);
 	if(0 != ret)
 	{
@@ -643,7 +1014,6 @@ static int server_disperse_packets(void * arg)
 		free(data);
 		data = NULL;
 	}
-	
 
 	return(0);
 }

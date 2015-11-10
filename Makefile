@@ -27,6 +27,7 @@ LOCAL_DEV_SRC := \
 		$(LOCAL_SRC)/net_recv.c		\
 		$(LOCAL_SRC)/system_init.c	\
 		$(LOCAL_SRC)/handle_packet.c \
+		$(LOCAL_SRC)/process_loin.c \
 		$(LOCAL_SRC)/main.c	
 
 

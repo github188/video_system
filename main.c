@@ -16,6 +16,7 @@
 #include "net_send.h"
 #include "net_recv.h"
 #include "handle_packet.h"
+#include "process_loin.h"
 
 
 #include "common.h"
@@ -62,18 +63,19 @@ int main(void)
 		dbg_printf("system_init is fail ! \n");
 		return(-1);
 	}
+	
 	handle_packet_init();
 	netsend_start_up();
 	netrecv_start_up();
-	
+	loin_process_init();
 	
 	sleep(1);
-
+	send_register_packet();
 	
 
 	while(1)
 	{
-		send_register_packet();
+		
 		sleep(10);
 	}
 		

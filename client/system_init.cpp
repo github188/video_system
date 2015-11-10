@@ -35,6 +35,7 @@ static int system_socket_init(void * arg)
 
 	int ret = -1;
 	int value = 0;
+	int buffer_size = 0;
 	if(NULL == arg)
 	{
 		dbg_printf("please check the param ! \n");
@@ -61,6 +62,9 @@ static int system_socket_init(void * arg)
 	}
 	int optserver=1;
 	setsockopt(handle->servce_socket,SOL_SOCKET,SO_REUSEADDR,&optserver,sizeof(optserver));
+	buffer_size = 32*1024;
+	setsockopt(handle->servce_socket, SOL_SOCKET, SO_RCVBUF, (char*)&buffer_size, sizeof(buffer_size));
+	setsockopt(handle->servce_socket, SOL_SOCKET, SO_SNDBUF, (char*)&buffer_size, sizeof(buffer_size));
 	
 	value = fcntl(handle->servce_socket,F_GETFL,0);
 	ret = fcntl(handle->servce_socket, F_SETFL, value|O_NONBLOCK);
@@ -71,8 +75,14 @@ static int system_socket_init(void * arg)
 	}
 	fcntl(handle->servce_socket, F_SETFD, FD_CLOEXEC);
 
-
-
+#if 0
+	struct sockaddr_in	addr_in;
+	bzero(&addr_in, sizeof(addr_in));
+	addr_in.sin_family      = AF_INET;
+	addr_in.sin_addr.s_addr = htonl(INADDR_ANY);
+	addr_in.sin_port        = htons(LOCAL_PORT);
+	bind(handle->servce_socket, (struct sockaddr *) &addr_in, sizeof(addr_in));
+#endif
 
 
 	handle->local_socket = socket(AF_INET, SOCK_DGRAM, 0);
@@ -90,7 +100,7 @@ static int system_socket_init(void * arg)
 		return(-3);
 	}
 	
-	int buffer_size = 32*1024;
+	buffer_size = 32*1024;
 	setsockopt(handle->local_socket, SOL_SOCKET, SO_RCVBUF, (char*)&buffer_size, sizeof(buffer_size));
 	setsockopt(handle->local_socket, SOL_SOCKET, SO_SNDBUF, (char*)&buffer_size, sizeof(buffer_size));
 	int optlocal=1;

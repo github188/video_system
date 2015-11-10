@@ -22,6 +22,7 @@ LOCAL_DEV_SRC := \
 		$(LOCAL_SRC)/net_recv.cpp \
 		$(LOCAL_SRC)/handle_packet.cpp \
 		$(LOCAL_SRC)/eventfd.cpp \
+		$(LOCAL_SRC)/process_loin.cpp \
 		$(LOCAL_SRC)/main.cpp	
 
 

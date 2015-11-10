@@ -71,8 +71,15 @@ static int system_socket_init(void * arg)
 	}
 	fcntl(handle->servce_socket, F_SETFD, FD_CLOEXEC);
 
+#if 0
+	struct sockaddr_in	addr_in;
+	bzero(&addr_in, sizeof(addr_in));
+	addr_in.sin_family      = AF_INET;
+	addr_in.sin_addr.s_addr = htonl(INADDR_ANY);
+	addr_in.sin_port        = htons(LOCAL_PORT);
+	bind(handle->servce_socket, (struct sockaddr *) &addr_in, sizeof(addr_in));
 
-
+#endif
 
 
 	handle->local_socket = socket(AF_INET, SOCK_DGRAM, 0);

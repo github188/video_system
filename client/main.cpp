@@ -7,6 +7,7 @@
 #include "net_send.h"
 #include "net_recv.h"
 #include "handle_packet.h"
+#include "process_loin.h"
 #include "common.h"
 
 
@@ -31,16 +32,15 @@ int main(int argc,char * argv[])
 	handle_packet_init();
 	netsend_start_up();
 	netrecv_start_up();
+	loin_process_init();
+	send_peer_packet();
 
-
-
-	
 	while(1)
 	{
 
-		send_peer_packet();
-		sleep(1);
-		dbg_printf("this is a test ! \n");
+		
+		sleep(10);
+	//	dbg_printf("this is a test ! \n");
 	}
 	
 

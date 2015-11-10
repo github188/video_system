@@ -192,7 +192,7 @@ static int recv_socket_fun(void * arg,int socketfd)
 		return(-2);
 	}
 
-	struct sockaddr_in from;
+	struct sockaddr from;
 	socklen_t addr_len = sizeof(struct sockaddr_in);
 	int len = 0;
 	char buff[1500];
@@ -204,20 +204,25 @@ static int recv_socket_fun(void * arg,int socketfd)
 		dbg_printf("the length is not right ! \n");
 		return(-2);
 	}
+
+	dbg_printf("1111111111111111111111\n");
 	if(header->type <= DUMP_PACKET || header->type >= UNKNOW_PACKET)
 	{
 		dbg_printf("the packet is not in the limit ! \n");
 		return(-3);
 	}
 
-	void * data = calloc(1,sizeof(char)*len+sizeof(struct sockaddr_in)+1);
+	void * data = calloc(1,sizeof(struct sockaddr)+sizeof(char)*len+1);
 	if(NULL == data)
 	{
 		dbg_printf("calloc is fail ! \n");
 		return(-4);
 	}
-	memmove(data,buff,len);
-	memmove(data+sizeof(char)*len,&from,sizeof(struct sockaddr_in));
+
+	
+	memmove(data,&from,sizeof(struct sockaddr));
+	memmove(data+sizeof(struct sockaddr),buff,len);
+
 	ret = netrecv_push_msg(data);
 	if(ret < 0 )
 	{
@@ -302,6 +307,10 @@ static handle_recvfun_t pfun_recvsystem[] = {
 	{REGISTER_PACKET_ASK,handle_register_ask},
 	{LOIN_PACKET,NULL},
 	{LOIN_PACKET_ASK,NULL},
+	{HOLE_PACKET,handle_hole_ask},
+	{HOLE_PACKET_ASK,NULL},
+	{ACTIVE_CHANNEL_PACKET,NULL},
+	{ACTIVE_CHANNEL_ASK,handle_active_channel_ask},
 	{BEATHEART_PACKET,NULL},
 	{BEATHEART_PACKET_ASK,NULL},
 		
@@ -321,6 +330,7 @@ static void *  netrecv_pthread_fun(void * arg)
 	int is_run = 1;
 	int i = 0;
 	packet_header_t * header = NULL;
+	void * pdata = NULL;
 	
 	while(is_run)
 	{
@@ -329,27 +339,28 @@ static void *  netrecv_pthread_fun(void * arg)
         {
             pthread_cond_wait(&(recv->cond_recv), &(recv->mutex_recv));
         }
-		ret = ring_queue_pop(&(recv->recv_msg_queue), (void **)&header);
+		ret = ring_queue_pop(&(recv->recv_msg_queue), (void **)&pdata);
 		pthread_mutex_unlock(&(recv->mutex_recv));
 		
 		volatile unsigned int *handle_num = &(recv->recv_msg_num);
 		fetch_and_sub(handle_num, 1);  
 
-		if(ret != 0 || NULL == header)continue;
-		
+		if(ret != 0 || NULL == pdata)continue;
+
+		header = (packet_header_t *)(pdata+sizeof(struct sockaddr));
 		for(i=0;i<sizeof(pfun_recvsystem)/sizeof(pfun_recvsystem[0]);++i)
 		{
 			if(header->type != pfun_recvsystem[i].type)continue;
 			if(NULL != pfun_recvsystem[i].handle_packet)
 			{
-				pfun_recvsystem[i].handle_packet(header);
+				pfun_recvsystem[i].handle_packet(pdata);
 		
 			}
 			
 		}
 
-		free(header);
-		header = NULL;
+		free(pdata);
+		pdata = NULL;
 
 
 	}
