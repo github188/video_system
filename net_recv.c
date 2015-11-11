@@ -205,7 +205,7 @@ static int recv_socket_fun(void * arg,int socketfd)
 		return(-2);
 	}
 
-	dbg_printf("1111111111111111111111\n");
+
 	if(header->type <= DUMP_PACKET || header->type >= UNKNOW_PACKET)
 	{
 		dbg_printf("the packet is not in the limit ! \n");
@@ -277,6 +277,7 @@ static void * recv_pthread(void * arg)
 	while(is_run)
 	{
 		nevents= epoll_wait(epfd, events, 32, -1);
+			dbg_printf("1111111111111111111111\n");
 		for(i=0;i<nevents;++i)
 		{
 			if(!(events[i].events & EPOLLIN))

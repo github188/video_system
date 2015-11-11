@@ -56,6 +56,78 @@ typedef struct net_send_handle
 static  net_send_handle_t * send_handle = NULL;
 
 
+#if 1
+
+static char * netlib_sock_ntop(struct sockaddr *sa)
+{
+
+	if(NULL == sa  )
+	{
+		dbg_printf("check the param \n");
+		return(NULL);
+	}
+	#define  DATA_LENGTH	128
+	
+	char * str  = (char*)calloc(1,sizeof(char)*DATA_LENGTH);
+	if(NULL == str)
+	{
+		dbg_printf("calloc is fail\n");
+		return(NULL);
+	}
+
+	switch(sa->sa_family)
+	{
+		case AF_INET:
+		{
+
+			struct sockaddr_in * sin = (struct sockaddr_in*)sa;
+
+			if(inet_ntop(AF_INET,&(sin->sin_addr),str,DATA_LENGTH) == NULL)
+			{
+				free(str);
+				str = NULL;
+				return(NULL);	
+			}
+			return(str);
+
+		}
+		default:
+		{
+			free(str);
+			str = NULL;
+			return(NULL);
+		}
+
+
+	}
+			
+    return (NULL);
+}
+
+
+static int  netlib_sock_get_port(const struct sockaddr *sa)
+{
+	if(NULL == sa)
+	{
+		dbg_printf("check the param\n");
+		return(-1);
+	}
+	switch (sa->sa_family)
+	{
+		case AF_INET: 
+		{
+			struct sockaddr_in	*sin = (struct sockaddr_in *) sa;
+
+			return(ntohs(sin->sin_port));
+		}
+
+
+	}
+
+    return(-1);
+}
+
+#endif
 
 static int netsend_handle_init(void)
 {
@@ -243,6 +315,22 @@ static void *  netsend_pthread_fun(void * arg)
 			break;
 		}
 
+		#if 0
+		char * ipdev = NULL;
+		int port_dev = 0;
+		ipdev = netlib_sock_ntop(&packet->to);
+		if(NULL != ipdev)
+		{
+			dbg_printf("the dev_ip is %s \n",ipdev);
+			free(ipdev);
+			ipdev = NULL;
+		}
+
+		port_dev = netlib_sock_get_port(&packet->to);
+		dbg_printf("the dev port is %d \n",port_dev);
+		
+
+		#endif
 		
 		if(UNRELIABLE_PACKET == packet->type)
 		{

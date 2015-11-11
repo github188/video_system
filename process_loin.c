@@ -216,7 +216,7 @@ static void * loin_pthread(void * arg)
 		
 
 		#endif
-		usleep(1000*2000);
+		usleep(1000*1000);
 	}
 
 

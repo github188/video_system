@@ -41,7 +41,7 @@ static process_loin_handle_t * loin_handle = NULL;
 
 #if 1
 
-char * netlib_sock_ntop(struct sockaddr *sa)
+static char * netlib_sock_ntop(struct sockaddr *sa)
 {
 
 	if(NULL == sa  )
@@ -88,7 +88,7 @@ char * netlib_sock_ntop(struct sockaddr *sa)
 }
 
 
-int  netlib_sock_get_port(const struct sockaddr *sa)
+static int  netlib_sock_get_port(const struct sockaddr *sa)
 {
 	if(NULL == sa)
 	{
@@ -200,7 +200,7 @@ static void * loin_pthread(void * arg)
         }
 		pthread_mutex_unlock(&(handle->mutex_loin));
 		send_active_channel_packet(&handle->addr);
-		usleep(1000*2000);
+		usleep(1000*1000);
 		#if 1
 		char * ipdev = NULL;
 		int port_dev = 0;
