@@ -11,6 +11,12 @@
 typedef  struct client_user
 {
 	char is_run;
+	char id_num;
+	
+	int qp;
+	void * encode_handle;
+	struct sockaddr addr;
+	
 	
 
 }client_user_t;
