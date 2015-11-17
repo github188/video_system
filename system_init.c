@@ -24,7 +24,7 @@
 #define	 SERVER_PORT	(8003u)
 #define  SERVER_ADDRES	"209.141.43.239"
 
-#define	 LOCAL_PORT		(8001u)
+#define	 LOCAL_PORT		(8002u)
 
 
 
@@ -71,7 +71,7 @@ static int system_socket_init(void * arg)
 	}
 	fcntl(handle->servce_socket, F_SETFD, FD_CLOEXEC);
 
-#if 0
+#if 1
 	struct sockaddr_in	addr_in;
 	bzero(&addr_in, sizeof(addr_in));
 	addr_in.sin_family      = AF_INET;

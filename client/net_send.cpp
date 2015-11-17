@@ -307,6 +307,7 @@ static void *  netsend_pthread_fun(void * arg)
 			ret = sendto(packet->sockfd,packet->data,packet->length,0,(struct sockaddr *)&packet->to,addr_len);
 			if(-1 == ret)
 			{
+				dbg_printf("send fail ! \n");
 				if(errno == EINTR || errno == EAGAIN)
 				{
 					usleep(1000);continue;
@@ -315,7 +316,7 @@ static void *  netsend_pthread_fun(void * arg)
 			break;
 		}
 
-		#if 0
+		#if 1
 		char * ipdev = NULL;
 		int port_dev = 0;
 		ipdev = netlib_sock_ntop(&packet->to);

@@ -255,21 +255,22 @@ static void * recv_pthread(void * arg)
 	int epfd = -1;
 	struct epoll_event add_event;
 	struct epoll_event events[32];
-	epfd=epoll_create(16);
+	epfd=epoll_create(256);
 
+#if 1
 	add_event.data.fd = handle->event_fd;
-	add_event.events = EPOLLIN | EPOLLET;
+	add_event.events = EPOLLIN;
 	epoll_ctl (epfd, EPOLL_CTL_ADD, handle->event_fd, &add_event);
-
+#endif
 	add_event.data.fd = handle->servce_socket;
-	add_event.events = EPOLLIN | EPOLLET;
+	add_event.events = EPOLLIN;
 	epoll_ctl (epfd, EPOLL_CTL_ADD, handle->servce_socket, &add_event);
 
-
+	#if 1
 	add_event.data.fd = handle->recv_socket;
-	add_event.events = EPOLLIN | EPOLLET;
+	add_event.events = EPOLLIN;
 	epoll_ctl (epfd, EPOLL_CTL_ADD, handle->recv_socket, &add_event);
-	
+	#endif
 
 	int is_run = 1;
 	int nevents = 0;
@@ -277,7 +278,7 @@ static void * recv_pthread(void * arg)
 	while(is_run)
 	{
 		nevents= epoll_wait(epfd, events, 32, -1);
-			dbg_printf("1111111111111111111111\n");
+		printf("1111111111111111111111\n");
 		for(i=0;i<nevents;++i)
 		{
 			if(!(events[i].events & EPOLLIN))

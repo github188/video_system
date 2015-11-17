@@ -232,7 +232,7 @@ int send_active_channel_packet(void * dest_addr)
 
 	spacket->sockfd = handle->servce_socket;
 	spacket->data = rpacket;
-	spacket->length = 1/*sizeof(active_channle_t)*/;
+	spacket->length =sizeof(active_channle_t);
 	spacket->to = *addr;
 
 	spacket->type = UNRELIABLE_PACKET;

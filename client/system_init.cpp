@@ -24,7 +24,7 @@
 #define	 SERVER_PORT	(8003u)
 #define  SERVER_ADDRES	"209.141.43.239"
 
-#define	 LOCAL_PORT		(8000u)
+#define	 LOCAL_PORT		(8002u)
 
 
 

@@ -191,6 +191,7 @@ static void * loin_pthread(void * arg)
 	}
 
 	int is_run = 1;
+
 	while(is_run)
 	{
         pthread_mutex_lock(&(handle->mutex_loin));
@@ -200,7 +201,7 @@ static void * loin_pthread(void * arg)
         }
 		pthread_mutex_unlock(&(handle->mutex_loin));
 		send_active_channel_packet(&handle->addr);
-		#if 1
+		#if 0
 		char * ipdev = NULL;
 		int port_dev = 0;
 		ipdev = netlib_sock_ntop(&handle->addr);
@@ -216,7 +217,9 @@ static void * loin_pthread(void * arg)
 		
 
 		#endif
+
 		usleep(1000*1000);
+		
 	}
 
 
