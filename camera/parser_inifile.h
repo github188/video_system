@@ -18,10 +18,10 @@ typedef  struct ini_handle
 }ini_handle_t;
 
 
-void*  inifile_new_handle(const char * path);
-void  inifile_free_handle(void * handle);
-int inifile_read_node(void * handle,char * index,char ** value);
-int inifile_write_node(void * handle,char * index,char *value);
+
+int  inipare_init(void);
+int  inipare_read(char * index,char ** value);
+int  inipare_write(char * index,char *value);
 	
 
 

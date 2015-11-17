@@ -1,7 +1,6 @@
-/*******************************************************************************
-**	jweihsz@qq.com		2015			v1.0
-*******************************************************************************/
 
+
+#if 0
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -11,8 +10,8 @@
 #include "akuio.h"
 #include "dev_camera.h"
 #include "video_encode.h"
-#include "start_up.h"
-#include "system_init.h"
+#include "link_net.h"
+#include "socket_init.h"
 #include "net_send.h"
 #include "net_recv.h"
 #include "handle_packet.h"
@@ -55,9 +54,9 @@ int main(void)
 	dbg_printf("this is a test ! \n");
 	int ret  =-1;
 	
-//	start_up();
+//	link_net();
 	
-	ret = system_init();
+	ret = socket_init();
 	if(ret != 0)
 	{
 		dbg_printf("system_init is fail ! \n");
@@ -160,4 +159,25 @@ int main(void)
 }
 
 
+
+#endif
+
+
+
+#include "system_init.h"
+#include "handle_packet.h"
+int main(void)
+{
+	int ret = -1;
+	
+	ret = system_init();
+	if(0 != ret )
+	{
+		dbg_printf("system_init is fail ! \n");
+		return(-1);
+	}
+	send_register_packet();	
+	while(1)sleep(100);
+	return(0);
+}
 

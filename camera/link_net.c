@@ -1,6 +1,3 @@
-/*******************************************************************************
-**	jweihsz@qq.com		2015			v1.0		
-*******************************************************************************/
 
 #include <stdio.h>
 #include <unistd.h>
@@ -29,7 +26,7 @@
 
 
 
-#define	 CONDIF_FILE		"/var/huiwei/config.ini"
+
 #define WPAFILE_FILE_PATH	"/var/huiwei/wpa_supplicant.conf"
 
 #define  ETH_DEV_NAME	"eth0"
@@ -54,50 +51,7 @@ typedef struct wifi_info
 
 
 
-static ini_handle_t * pini_handle = NULL;
 
-
-
-static int  inipare_init(const char * path)
-{
-	if(NULL != pini_handle)
-	{
-		dbg_printf("the handle of inipare has  been init ! \n");
-		return(-1);
-	}
-	pini_handle = inifile_new_handle(path);
-	if(NULL == pini_handle)
-	{
-		dbg_printf("inifile_new_handle  fail ! \n");
-		return(-2);
-	}
-	return(0);
-}
-
-
-
-int  inipare_read(char * index,char ** value)
-{
-	if(NULL == pini_handle)
-	{
-		dbg_printf("please init the inipare handle \n");
-		*value = NULL;
-		return(-1);
-	}
-	return(inifile_read_node(pini_handle,index,value));
-}
-
-
-
-int  inipare_write(char * index,char *value)
-{
-	if(NULL == pini_handle)
-	{
-		dbg_printf("please init the inipare handle \n");
-		return(-1);
-	}
-	return(inifile_write_node(pini_handle,index,value));
-}
 
 
 void free_wifi_node(wifi_info_t * wifi)
@@ -314,16 +268,10 @@ static void * start_net(void * arg)
 
 
 
-int start_up(void)
+int link_net(void)
 {
 
 	int ret = -1;
-	ret = inipare_init(CONDIF_FILE);
-	if(0 != ret)
-	{
-		dbg_printf("inipare_init fail ! \n");
-		return(-1);
-	}
 	pthread_t wifi_tid_once;
 	ret = pthread_create(&wifi_tid_once,NULL,start_net,NULL);
 

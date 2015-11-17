@@ -2,6 +2,7 @@
 #define  _COMMON_H
 
 
+
 #undef  DBG_ON
 #undef  FILE_NAME
 #define 	DBG_ON  	(0x01)
@@ -12,8 +13,29 @@
 
 #define	 anyka_print		dbg_printf		
 
+typedef void * (* pthread_fun)(void * arg);
 
 
+#include <stdio.h>
+#include <unistd.h>
+#include <stdlib.h>
+#include <string.h>
+#include <errno.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <netdb.h>
+#include <sys/time.h>
+#include <time.h>
+#include <net/if.h>
+#include <sys/ioctl.h>
+#include <pthread.h>
+#include <sys/epoll.h>
 
+
+char * socket_ntop(struct sockaddr *sa);
+int  socket_get_port(const struct sockaddr *sa);
+unsigned long socket_get_ip(const char * interface);
 	
 #endif

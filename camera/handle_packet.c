@@ -1,21 +1,6 @@
-#include <stdio.h>
-#include <unistd.h>
-#include <stdlib.h>
-#include <string.h>
-#include <errno.h>
-#include <fcntl.h>
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-#include <netdb.h>
-
-#include "common.h"
 #include "handle_packet.h"
 #include "system_init.h"
-#include "data_packet.h"
 #include "net_send.h"
-#include "process_loin.h"
 
 
 #undef  	DBG_ON
@@ -24,24 +9,21 @@
 #define 	FILE_NAME 	"handle_packet"
 
 
-
-static system_handle_t * system_info = NULL;
-
-
-
 int  send_register_packet(void)
 {
 
 
 	int ret = -1;
-	if(NULL == system_info)
+	if(NULL == camera || NULL == camera->socket || NULL == camera->send)
 	{
 		dbg_printf("check the param ! \n");
 		return(-1);
 	}
-	system_handle_t * handle =system_info;
+
+	net_send_handle_t * send_handle = camera->send;
+	socket_handle_t * handle = camera->socket;
 	
-	
+
 	register_packet_t * rpacket = calloc(1,sizeof(*rpacket));
 	if(NULL == rpacket)
 	{
@@ -60,11 +42,10 @@ int  send_register_packet(void)
 	rpacket->head.index = 0xFFFF;
 	rpacket->head.packet_len = sizeof(rpacket->x);
 	rpacket->x = 'r';
-
 	memset(rpacket->dev_name,'\0',sizeof(rpacket->dev_name));
 	strcpy(rpacket->dev_name,"camera_0");
-
-	spacket->sockfd = handle->servce_socket;
+	
+	spacket->sockfd = handle->local_socket;
 	spacket->data = rpacket;
 	spacket->length = sizeof(register_packet_t);
 	spacket->to = handle->servaddr;
@@ -75,10 +56,10 @@ int  send_register_packet(void)
 	spacket->index = 0xFFFF;
 	spacket->ta.tv_sec = 0;
 	spacket->ta.tv_usec = 800*1000;
-	ret = netsend_push_msg(spacket);
+	ret = send_push_msg(send_handle,spacket);
 	if(ret != 0)
 	{
-		dbg_printf("netsend_push_msg is fail ! \n");
+		dbg_printf("send_push_msg is fail ! \n");
 		goto fail;
 	}
 
@@ -102,9 +83,19 @@ fail:
 
 
 
-int  handle_register_ask(void * arg)
+int  process_register_ask(void * arg)
 {
 
+
+	dbg_printf("process_register_ask \n");
+	if(NULL == camera || NULL == camera->send)
+	{
+		dbg_printf("check the param ! \n");
+		return(-1);
+	}
+
+	net_send_handle_t * send_handle = camera->send;
+	
 	struct sockaddr * src_addres = (struct sockaddr *)arg;
 	packet_header_t * header =	(packet_header_t *)(src_addres+1); 
 	register_ask_packet_t * packet = (register_ask_packet_t*)(header);
@@ -113,10 +104,48 @@ int  handle_register_ask(void * arg)
 		dbg_printf("the packet is not right ! \n");
 		return(-1);
 	}
-	netsend_remove_packet(packet->head.index);
+	send_remove_packet(send_handle,packet->head.index);
 	
 	return(0);
 }
+
+
+
+
+static handle_packet_fun_t pfun_recvsystem[] = {
+
+	{REGISTER_PACKET,NULL},
+	{REGISTER_PACKET_ASK,process_register_ask},
+	{PEER_PACKET,NULL},
+	{PEER_PACKET_ASK,NULL},
+	{LOIN_PACKET,NULL},
+	{LOIN_PACKET_ASK,NULL},
+	{HOLE_PACKET,NULL},
+	{HOLE_PACKET_ASK,NULL},
+	{ACTIVE_CHANNEL_PACKET,NULL},
+	{ACTIVE_CHANNEL_ASK,NULL},
+	{BEATHEART_PACKET,NULL},
+	{BEATHEART_PACKET_ASK,NULL},
+	{UNKNOW_PACKET,NULL},
+		
+};
+
+
+
+handle_packet_fun_t *  get_handle_packet_fun(void)
+{
+	return(pfun_recvsystem);
+}
+
+
+
+
+
+
+
+
+
+#if 0
 
 
 
@@ -289,7 +318,10 @@ int handle_packet_init(void)
 		return(-1);
 	}
 
-	system_info = system_gethandle();
+	system_info = socket_gethandle();
 	
 	return(0);
 }
+
+
+#endif

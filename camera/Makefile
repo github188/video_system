@@ -7,7 +7,7 @@ CC = arm-none-linux-gnueabi-gcc
 
 
 
-LOCAL_INC =  -I./   -L./lib
+LOCAL_INC =  -I./  -I../  -L./lib
 
 LOCAL_LIB =    -lpthread  -lakuio  -lakstreamenclib  -lrt
 LOCAL_SRC =  .
@@ -16,18 +16,17 @@ LOCAL_SRC =  .
 
 
 LOCAL_DEV_SRC := \
+		../common.c	\
 		$(LOCAL_SRC)/parser_inifile.c	\
-		$(LOCAL_SRC)/dev_camera.c	\
-		$(LOCAL_SRC)/video_encode.c	 \
-		$(LOCAL_SRC)/start_up.c		\
-		$(LOCAL_SRC)/ring_queue.c	\
-		$(LOCAL_SRC)/net_send.c		\
-		$(LOCAL_SRC)/time_unitl.c	\
-		$(LOCAL_SRC)/eventfd.c		\
-		$(LOCAL_SRC)/net_recv.c		\
+		$(LOCAL_SRC)/socket_init.c	\
+		$(LOCAL_SRC)/time_unitl.c \
+		$(LOCAL_SRC)/link_net.c	\
+		$(LOCAL_SRC)/net_send.c  \
+		$(LOCAL_SRC)/net_recv.c  \
+		$(LOCAL_SRC)/handle_packet.c  \
+		$(LOCAL_SRC)/eventfd.c  \
 		$(LOCAL_SRC)/system_init.c	\
-		$(LOCAL_SRC)/handle_packet.c \
-		$(LOCAL_SRC)/process_loin.c \
+		$(LOCAL_SRC)/ring_queue.c  \
 		$(LOCAL_SRC)/main.c	
 
 

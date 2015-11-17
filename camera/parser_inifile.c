@@ -1,6 +1,4 @@
-/*******************************************************************************
-**	jweihsz@qq.com		2015			v1.0
-*******************************************************************************/
+
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -132,7 +130,7 @@ static int inifile_rewrite(void * handle)
 }
 
 
-void*  inifile_new_handle(const char * path)
+static void*  inifile_new_handle(const char * path)
 {
 	int ret = -1;
 	if(NULL == path || access(path,F_OK) != 0)
@@ -166,7 +164,7 @@ void*  inifile_new_handle(const char * path)
 }
 
 
-void  inifile_free_handle(void * handle)
+static void  inifile_free_handle(void * handle)
 {
 	int ret = -1;
 	if(NULL == handle)
@@ -212,7 +210,7 @@ void  inifile_free_handle(void * handle)
 
 
 
-int inifile_read_node(void * handle,char * index,char ** value)
+static  int inifile_read_node(void * handle,char * index,char ** value)
 {
 	if(NULL == handle || NULL == index)
 	{
@@ -237,7 +235,7 @@ int inifile_read_node(void * handle,char * index,char ** value)
 }
 
 
-int inifile_write_node(void * handle,char * index,char *value)
+static int inifile_write_node(void * handle,char * index,char *value)
 {
 	if(NULL == handle || NULL == index)
 	{
@@ -264,6 +262,55 @@ int inifile_write_node(void * handle,char * index,char *value)
     }
 	pthread_rwlock_unlock(&handle_ini->rwlock);
 	return(-2);
+}
+
+
+
+
+#define	 CONDIF_FILE		"/var/huiwei/config.ini"
+
+static ini_handle_t * pini_handle = NULL;
+
+
+int  inipare_init(void)
+{
+	if(NULL != pini_handle)
+	{
+		dbg_printf("the handle of inipare has  been init ! \n");
+		return(-1);
+	}
+	pini_handle = inifile_new_handle(CONDIF_FILE);
+	if(NULL == pini_handle)
+	{
+		dbg_printf("inifile_new_handle  fail ! \n");
+		return(-2);
+	}
+	return(0);
+}
+
+
+
+int  inipare_read(char * index,char ** value)
+{
+	if(NULL == pini_handle)
+	{
+		dbg_printf("please init the inipare handle \n");
+		*value = NULL;
+		return(-1);
+	}
+	return(inifile_read_node(pini_handle,index,value));
+}
+
+
+
+int  inipare_write(char * index,char *value)
+{
+	if(NULL == pini_handle)
+	{
+		dbg_printf("please init the inipare handle \n");
+		return(-1);
+	}
+	return(inifile_write_node(pini_handle,index,value));
 }
 
 
