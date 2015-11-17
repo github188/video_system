@@ -10,6 +10,7 @@ typedef struct socket_handle
 {
 	int local_socket;
 	struct sockaddr	servaddr;
+	struct sockaddr localaddr;
 
 }socket_handle_t;
 

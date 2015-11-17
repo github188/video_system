@@ -12,6 +12,7 @@
 
 #include "common.h"
 #include "socket_init.h"
+#include "link_net.h"
 
 
 
@@ -83,6 +84,19 @@ void * socket_socket_new(void)
 	local_addr.sin_port        = htons(LOCAL_PORT);
 	bind(handle->local_socket, (struct sockaddr *) &local_addr, sizeof(local_addr));
 
+	ret = get_net_type();
+	if(0/*0 == ret */)/*wifi*/
+	{
+		get_local_addr("wlan0",&handle->localaddr);	
+	}
+	else
+	{
+		get_local_addr("eth0",&handle->localaddr);
+	}
+	struct sockaddr_in * localaddr = (struct sockaddr_in *)&handle->localaddr;
+	localaddr->sin_port = htons(LOCAL_PORT);
+	
+
 	return(handle);
 
 
@@ -102,8 +116,6 @@ fail:
 	return(NULL);
 	
 }
-
-
 
 
 

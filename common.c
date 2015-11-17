@@ -74,27 +74,31 @@ int  socket_get_port(const struct sockaddr *sa)
 
 
 
-unsigned long socket_get_ip(const char * interface)
+int get_local_addr(const char * interface,struct sockaddr * addr)
 {
 	
-	if(NULL == interface)
+	if(NULL == interface || NULL == addr)
 	{
 		dbg_printf("check the param ! \n");
-		return(0);
+		return(-1);
 	}
 
 	int ret = -1;
     int inet_sock;
     struct ifreq ifr;
 	inet_sock = socket(AF_INET, SOCK_DGRAM, 0);
+	bzero(&ifr, sizeof(struct ifreq)); 
+	strcpy(ifr.ifr_name, interface); 
 	ret = ioctl(inet_sock, SIOCGIFADDR, &ifr);
 	if(ret < 0 )
 	{
 		dbg_printf("ioctl is fail ! \n");
-		return(0);
+		return(-2);
 	}
 	close(inet_sock);
-	return(((struct sockaddr_in*)&(ifr.ifr_addr))->sin_addr.s_addr);
+
+	*addr = ifr.ifr_addr;
+	return(0);
 
 }
 

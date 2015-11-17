@@ -66,6 +66,13 @@ int system_init(void)
 		goto fail;
 	}
 
+#if 1
+	struct sockaddr_in * localaddr = (struct sockaddr_in *)&camera->socket->localaddr;
+	char * ip = socket_ntop(&camera->socket->localaddr);
+	dbg_printf("ip is %s port == %d \n",ip,ntohs(localaddr->sin_port));
+	free(ip);
+#endif
+
 	camera->send = (net_send_handle_t*)send_handle_new();
 	if(NULL == camera->send)
 	{

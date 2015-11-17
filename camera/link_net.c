@@ -51,6 +51,8 @@ typedef struct wifi_info
 
 
 
+static  volatile int net_type = 3; 
+
 
 
 
@@ -95,12 +97,14 @@ static net_type_m start_check_net(void)
 	if('1' == is_net)
 	{
 		type = STARTUP_NET;	
+		
 	}
 	else
 	{
-		type = STARTUP_WIFI;		
+		type = STARTUP_WIFI;
+		
 	}
-
+	net_type = type;
 	fclose(pnet);
 	pnet = NULL;
 	return(type);
@@ -281,4 +285,13 @@ int link_net(void)
 	dbg_printf("start up finished ! \n");
 	
 	return(0);
+}
+
+
+
+int get_net_type(void)
+{
+
+	return(net_type);
+
 }

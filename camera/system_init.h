@@ -8,12 +8,25 @@
 
 
 
+typedef  struct client_user
+{
+	char is_run;
+	
+
+}client_user_t;
+
+
+
 typedef struct camera_handle
 {
+	
 	socket_handle_t * socket;
 	net_send_handle_t * send;
 	net_recv_handle_t * recv;
 	handle_packet_fun_t * fun;
+
+	int max_user;
+	client_user_t * user;
 
 }camera_handle_t;
 

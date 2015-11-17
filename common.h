@@ -36,6 +36,6 @@ typedef void * (* pthread_fun)(void * arg);
 
 char * socket_ntop(struct sockaddr *sa);
 int  socket_get_port(const struct sockaddr *sa);
-unsigned long socket_get_ip(const char * interface);
+int get_local_addr(const char * interface,struct sockaddr * addr);
 	
 #endif
