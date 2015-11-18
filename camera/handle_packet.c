@@ -42,7 +42,7 @@ int  send_register_packet(void * dev)
 
 	rpacket->head.type = REGISTER_PACKET;
 	rpacket->head.index = 0xFFFF;
-	rpacket->head.packet_len = sizeof(rpacket->x);
+	rpacket->head.packet_len = sizeof(register_packet_t);
 	rpacket->x = 'r';
 	rpacket->localaddr = localaddr;
 	memset(rpacket->dev_name,'\0',sizeof(rpacket->dev_name));

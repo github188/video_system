@@ -1,10 +1,6 @@
 #ifndef _ring_queue_h
 #define _ring_queue_h
 
-#ifdef __cplusplus
-extern "C"
-{
-#endif
 
 
 #define  compare_and_swap(lock,old,set)		__sync_bool_compare_and_swap(lock,old,set)
@@ -28,10 +24,5 @@ int ring_queue_init(ring_queue_t *queue, int buffer_size);
 int ring_queue_push(ring_queue_t *queue, void * ele);
 int  ring_queue_pop(ring_queue_t *queue, void **ele);
 
-
-
-#ifdef __cplusplus
-};
-#endif
 
 #endif  /*_ring_queue_h*/

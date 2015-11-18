@@ -2,28 +2,21 @@
 #define  _handle_packet_h
 
 
+#include "common.h"
+#include "data_packet.h"
 
-#ifdef __cplusplus
-#include <iostream>
-using namespace std;
-extern "C"
+
+typedef struct handle_packet_fun
 {
-#endif
+	packet_type_m type;
+	int  (*handle_packet)(void * handle,void * data);
+}handle_packet_fun_t;
 
-
-int handle_packet_init(void);
-int  send_peer_packet(void);
-int  handle_peer_ask(void * arg);
-int  handle_loin_ask(void * arg);
-int send_active_channel_packet(void * dest_addr);
-int  handle_active_channel_ask(void * arg);
+handle_packet_fun_t *  get_handle_packet_fun(void);
 
 
 
-#ifdef __cplusplus
-}
-#endif
-
+int  send_peer_packet(void * dev);
 
 
 #endif  /*_handle_packet_h*/

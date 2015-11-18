@@ -134,30 +134,22 @@ fail:
 
 
 
-
-#if 0
-
-
-
-
-
-
-static int  handle_peer_packet(void * pdata)
+static int  process_peer_packet(void * dev_handle,void * pdata)
 {
 
 
 	int ret = -1;
 	int flag = 0;
+	server_handle_t * handle = (server_handle_t *)dev_handle;
+	struct sockaddr * src_addres = (struct sockaddr *)pdata;
+	packet_header_t * header =	(packet_header_t *)(src_addres+1); 
+	peer_packet_t * packet = (peer_packet_t*)(header);
+	
 	if(NULL == pdata ||  NULL==handle)
 	{
 		dbg_printf("please check the param ! \n");
 		goto fail;
 	}
-
-	struct sockaddr * src_addres = (struct sockaddr *)pdata;
-	packet_header_t * header =	(packet_header_t *)(src_addres+1); 
-	peer_packet_t * packet = (peer_packet_t*)(header);
-	
 
 	if(header->type != PEER_PACKET)
 	{
@@ -167,7 +159,7 @@ static int  handle_peer_packet(void * pdata)
 
 	char * pchar = strchr(packet->dev_name,'_');
 	
-	if(NULL == pchar || 0==is_digit(pchar+1))
+	if(NULL == pchar || 0 ==is_digit(pchar+1))
 	{
 		dbg_printf("the dev name is not right ! \n");
 		flag = 1;
@@ -184,6 +176,28 @@ static int  handle_peer_packet(void * pdata)
 		flag = 3;	
 	}
 
+	#if 1
+	if(0 == flag)
+	{
+		char * ipdev = NULL;
+		int port_dev = 0;
+		ipdev = socket_ntop(src_addres);
+		if(NULL != ipdev)
+		{
+			dbg_printf("the client is %s \n",ipdev);
+			free(ipdev);
+			ipdev = NULL;
+		}
+
+		port_dev = socket_get_port(src_addres);
+		dbg_printf("the client port is %d \n",port_dev);
+	
+
+	}
+
+	#endif
+
+
 	peer_ask_packet_t * rpacket = calloc(1,sizeof(*rpacket));
 	if(NULL == rpacket)
 	{
@@ -198,20 +212,21 @@ static int  handle_peer_packet(void * pdata)
 	}
 	rpacket->head.type = PEER_PACKET_ASK;
 	rpacket->head.index = packet->head.index;
-	rpacket->head.packet_len = sizeof(rpacket->dev_addr);
+	rpacket->head.packet_len = sizeof(peer_ask_packet_t);
 	rpacket->head.ret = flag;
-
-	if(0 == flag)
+	rpacket->p = 'p'+1;
+	memmove(rpacket->dev_name,packet->dev_name,sizeof(rpacket->dev_name));
 	rpacket->dev_addr = handle->dev[dev_index]->dev_addr;
+	rpacket->dev_localaddr = handle->dev[dev_index]->dev_localaddr;
 
-	
+
 	spacket->sockfd = handle->server_socket;
 	spacket->data = rpacket;
 	spacket->length = sizeof(peer_ask_packet_t);
 	spacket->to = *src_addres;
 
 	spacket->type = UNRELIABLE_PACKET;
-	ret = server_push_sendmsg(spacket);
+	ret = server_push_sendmsg(handle,spacket);
 	
 	if(ret != 0)
 	{
@@ -240,6 +255,15 @@ fail:
 	return(-1);
 	
 }
+
+#if 0
+
+
+
+
+
+
+
 
 
 
@@ -480,7 +504,7 @@ static handle_packet_fun_t pfun_system[] = {
 
 	{REGISTER_PACKET,process_register_packet},
 	{REGISTER_PACKET_ASK,NULL},
-	{PEER_PACKET,NULL},
+	{PEER_PACKET,process_peer_packet},
 	{PEER_PACKET_ASK,NULL},
 	{LOIN_PACKET,NULL},
 	{LOIN_PACKET_ASK,NULL},

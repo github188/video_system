@@ -1,27 +1,6 @@
-#include <stdio.h>
-#include <unistd.h>
-#include <stdlib.h>
-#include <string.h>
-#include <errno.h>
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-#include <netdb.h>
-#include <sys/time.h>
-#include <time.h>
-#include <pthread.h>
 
-
-
-#include "data_packet.h"
-#include "ring_queue.h"
 #include "net_send.h"
-#include "time_unitl.h"
-
-
-
-#include "common.h"
+#include "system_init.h"
 
 #undef  	DBG_ON
 #undef  	FILE_NAME
@@ -29,148 +8,7 @@
 #define 	FILE_NAME 	"net_send"
 
 
-
-#define		RESEND_PACKET_MAX_NUM	(1024)
-#define		RESEND_TIMES			(3)
-#define		RESEND_TIME_INTERVAL	(800)  /*ms*/
-
-typedef struct net_send_handle
-{
-	pthread_mutex_t mutex_send;
-	pthread_cond_t cond_send;
-	ring_queue_t send_msg_queue;
-	volatile unsigned int send_msg_num;
-
-	
-	void * resend[RESEND_PACKET_MAX_NUM];
-	volatile int packet_num; 
-	pthread_mutex_t mutex_resend;
-	pthread_cond_t cond_resend;
-	volatile unsigned int resend_msg_num;
-	
-
-}net_send_handle_t;
-
-
-
-static  net_send_handle_t * send_handle = NULL;
-
-
-#if 1
-
-static char * netlib_sock_ntop(struct sockaddr *sa)
-{
-
-	if(NULL == sa  )
-	{
-		dbg_printf("check the param \n");
-		return(NULL);
-	}
-	#define  DATA_LENGTH	128
-	
-	char * str  = (char*)calloc(1,sizeof(char)*DATA_LENGTH);
-	if(NULL == str)
-	{
-		dbg_printf("calloc is fail\n");
-		return(NULL);
-	}
-
-	switch(sa->sa_family)
-	{
-		case AF_INET:
-		{
-
-			struct sockaddr_in * sin = (struct sockaddr_in*)sa;
-
-			if(inet_ntop(AF_INET,&(sin->sin_addr),str,DATA_LENGTH) == NULL)
-			{
-				free(str);
-				str = NULL;
-				return(NULL);	
-			}
-			return(str);
-
-		}
-		default:
-		{
-			free(str);
-			str = NULL;
-			return(NULL);
-		}
-
-
-	}
-			
-    return (NULL);
-}
-
-
-static int  netlib_sock_get_port(const struct sockaddr *sa)
-{
-	if(NULL == sa)
-	{
-		dbg_printf("check the param\n");
-		return(-1);
-	}
-	switch (sa->sa_family)
-	{
-		case AF_INET: 
-		{
-			struct sockaddr_in	*sin = (struct sockaddr_in *) sa;
-
-			return(ntohs(sin->sin_port));
-		}
-
-
-	}
-
-    return(-1);
-}
-
-#endif
-
-static int netsend_handle_init(void)
-{
-	int ret = -1;
-	int i = 0;
-	if(NULL != send_handle)
-	{
-		dbg_printf("has been init ! \n");
-		return(-1);
-	}
-	send_handle = (net_send_handle_t*)calloc(1,sizeof(*send_handle));
-	if(NULL == send_handle)
-	{
-		dbg_printf("calloc fail ! \n");
-		return(-2);
-	}
-	ret = ring_queue_init(&send_handle->send_msg_queue, 1024);
-	if(ret < 0 )
-	{
-		dbg_printf("ring_queue_init  fail \n");
-		return(-3);
-	}
-    pthread_mutex_init(&(send_handle->mutex_send), NULL);
-    pthread_cond_init(&(send_handle->cond_send), NULL);
-	send_handle->send_msg_num = 0;
-
-	
-	send_handle->packet_num = 0;
-	for(i=0;i<RESEND_PACKET_MAX_NUM;++i)
-		send_handle->resend[i] = NULL;
-	 pthread_mutex_init(&(send_handle->mutex_resend), NULL);
-	 pthread_cond_init(&(send_handle->cond_resend), NULL);
-	 send_handle->resend_msg_num = 0;
-
-	return(0);
-}
-
-
-
-
-
-
-int netsend_remove_packet(int index)
+int send_remove_packet(net_send_handle_t *send_handle, int index)
 {
 
 	if(RESEND_PACKET_MAX_NUM < index || NULL == send_handle)
@@ -212,7 +50,8 @@ int netsend_remove_packet(int index)
 	return(0);
 }
 
-int  netsend_push_msg(void * data )
+
+int  send_push_msg(net_send_handle_t *send_handle,void * data )
 {
 
 	int ret = 1;
@@ -258,10 +97,11 @@ int  netsend_push_msg(void * data )
 
 
 
-static void *  netsend_pthread_fun(void * arg)
+static void *  send_pthread_fun(void * arg)
 {
-	net_send_handle_t * send = (net_send_handle_t * )arg;
-	if(NULL == send)
+	camera_handle_t * camera_dev = (camera_handle_t*)arg;
+	net_send_handle_t * send = (net_send_handle_t * )camera_dev->send;
+	if(NULL == camera_dev || NULL == send)
 	{
 		dbg_printf("please check the param ! \n");
 		return(NULL);
@@ -316,23 +156,6 @@ static void *  netsend_pthread_fun(void * arg)
 			break;
 		}
 
-		#if 1
-		char * ipdev = NULL;
-		int port_dev = 0;
-		ipdev = netlib_sock_ntop(&packet->to);
-		if(NULL != ipdev)
-		{
-			dbg_printf("the dev_ip is %s \n",ipdev);
-			free(ipdev);
-			ipdev = NULL;
-		}
-
-		port_dev = netlib_sock_get_port(&packet->to);
-		dbg_printf("the dev port is %d \n",port_dev);
-		
-
-		#endif
-		
 		if(UNRELIABLE_PACKET == packet->type)
 		{
 			if(NULL != packet->data)
@@ -421,10 +244,13 @@ static void *  netsend_pthread_fun(void * arg)
 
 
 
-static void *  netresend_pthread_fun(void * arg)
+static void *  resend_pthread_fun(void * arg)
 {
-	net_send_handle_t * send = (net_send_handle_t * )arg;
-	if(NULL == send)
+
+	camera_handle_t * camera_dev = (camera_handle_t*)arg;
+	net_send_handle_t * send = (net_send_handle_t * )camera_dev->send;
+
+	if(NULL == camera_dev  || NULL == send)
 	{
 		dbg_printf("please check the param ! \n");
 		return(NULL);
@@ -460,7 +286,7 @@ static void *  netresend_pthread_fun(void * arg)
 			{
 				packet->is_resend = 1;
 				packet->resend_times += 1;
-				netsend_push_msg(send->resend[i]);
+				send_push_msg(send,send->resend[i]);
 				
 			}
 		}
@@ -476,27 +302,63 @@ static void *  netresend_pthread_fun(void * arg)
 
 
 
-int  netsend_start_up(void)
+
+void * send_handle_new(void)
 {
 	int ret = -1;
-	ret = netsend_handle_init();
-	if(0 != ret)
+	int i = 0;
+
+	net_send_handle_t * send_handle = calloc(1,sizeof(*send_handle));
+	if(NULL == send_handle)
 	{
-		dbg_printf("netsend_handle_init  fail ! \n");
-		return(-1);
+		dbg_printf("calloc fail ! \n");
+		return(NULL);
 	}
+	ret = ring_queue_init(&send_handle->send_msg_queue, 1024);
+	if(ret < 0 )
+	{
+		dbg_printf("ring_queue_init  fail \n");
+		free(send_handle);
+		send_handle = NULL;
+		return(NULL);
+	}
+    pthread_mutex_init(&(send_handle->mutex_send), NULL);
+    pthread_cond_init(&(send_handle->cond_send), NULL);
+	send_handle->send_msg_num = 0;
 
-	pthread_t netsend_ptid;
-	ret = pthread_create(&netsend_ptid,NULL,netsend_pthread_fun,send_handle);
-	pthread_detach(netsend_ptid);
+	send_handle->packet_num = 0;
+	for(i=0;i<RESEND_PACKET_MAX_NUM;++i)
+		send_handle->resend[i] = NULL;
+	 pthread_mutex_init(&(send_handle->mutex_resend), NULL);
+	 pthread_cond_init(&(send_handle->cond_resend), NULL);
+	 send_handle->resend_msg_num = 0;
 
-	pthread_t netresend_ptid;
-	ret = pthread_create(&netresend_ptid,NULL,netresend_pthread_fun,send_handle);
-	pthread_detach(netresend_ptid);
+
+	send_handle->send_fun = send_pthread_fun;
+	send_handle->resend_fun = resend_pthread_fun;
 	
 
+	
+	return(send_handle);
 }
 
 
+
+void send_handle_destroy(void * arg)
+{
+	if(NULL == arg)
+	{
+		dbg_printf("free the null socket ! \n");
+		return;
+	}
+	net_send_handle_t * handle = (net_send_handle_t*)arg;
+
+	if(NULL != handle)
+	{
+		free(handle);
+		handle = NULL;
+	}
+
+}
 
 

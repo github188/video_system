@@ -88,15 +88,23 @@ typedef struct register_ask_packet
 typedef struct peer_packet
 {
 	packet_header_t head;
+	char p;
 	char dev_name[64];
+	struct sockaddr localaddr;
 }peer_packet_t;
 
 
 typedef struct peer_ask_packet
 {
 	packet_header_t head;
+	char p;
+	char dev_name[64];
 	struct sockaddr dev_addr;
+	struct sockaddr dev_localaddr;
 }peer_ask_packet_t;
+
+
+
 
 
 

@@ -1,57 +1,39 @@
-#include <stdio.h>
-#include <unistd.h>
-#include <stdlib.h>
-#include <string.h>
-#include <errno.h>
-#include <fcntl.h>
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-#include <netdb.h>
-
-#include "common.h"
 #include "handle_packet.h"
 #include "system_init.h"
-#include "data_packet.h"
 #include "net_send.h"
-#include "process_loin.h"
 
 
 #undef  	DBG_ON
 #undef  	FILE_NAME
 #define 	DBG_ON  	(0x01)
-#define 	FILE_NAME 	"handle_packet:"
+#define 	FILE_NAME 	"handle_packet"
 
 
-
-static system_handle_t * system_info = NULL;
-int  send_loin_packet(struct sockaddr * addr);
-
-
-
-
-int  send_peer_packet(void)
+int  send_peer_packet(void * dev)
 {
 
 
 	int ret = -1;
-	if(NULL == system_info)
+	camera_handle_t * camera_dev = (camera_handle_t*)dev;
+	if(NULL == camera_dev || NULL == camera_dev->socket || NULL == camera_dev->send)
 	{
 		dbg_printf("check the param ! \n");
 		return(-1);
 	}
-	system_handle_t * handle =system_info;
+
+	net_send_handle_t * send_handle = camera_dev->send;
+	socket_handle_t * handle = camera_dev->socket;
+	struct sockaddr localaddr = camera_dev->socket->localaddr;
 	
-	send_packet_t *spacket = NULL;
-	peer_packet_t * rpacket = (peer_packet_t*)calloc(1,sizeof(*rpacket));
+
+	peer_packet_t * rpacket = calloc(1,sizeof(*rpacket));
 	if(NULL == rpacket)
 	{
 		dbg_printf("calloc is fail ! \n");
 		goto fail;
 	}
 
-	spacket = (send_packet_t*)calloc(1,sizeof(*spacket));
+	send_packet_t *spacket = calloc(1,sizeof(*spacket));
 	if(NULL == spacket)
 	{
 		dbg_printf("calloc is fail ! \n");
@@ -60,15 +42,15 @@ int  send_peer_packet(void)
 
 	rpacket->head.type = PEER_PACKET;
 	rpacket->head.index = 0xFFFF;
-	rpacket->head.packet_len = sizeof(rpacket->dev_name);
-	rpacket->head.ret = 0xFF;
-
+	rpacket->head.packet_len = sizeof(peer_packet_t);
+	rpacket->p = 'p';
+	rpacket->localaddr = localaddr;
 	memset(rpacket->dev_name,'\0',sizeof(rpacket->dev_name));
 	strcpy(rpacket->dev_name,"camera_0");
-
-	spacket->sockfd = handle->servce_socket;
+	
+	spacket->sockfd = handle->local_socket;
 	spacket->data = rpacket;
-	spacket->length = sizeof(peer_packet_t);
+	spacket->length = sizeof(register_packet_t);
 	spacket->to = handle->servaddr;
 
 	spacket->type = RELIABLE_PACKET;
@@ -77,16 +59,15 @@ int  send_peer_packet(void)
 	spacket->index = 0xFFFF;
 	spacket->ta.tv_sec = 0;
 	spacket->ta.tv_usec = 800*1000;
-	ret = netsend_push_msg(spacket);
+	ret = send_push_msg(send_handle,spacket);
 	if(ret != 0)
 	{
-		dbg_printf("netsend_push_msg is fail ! \n");
+		dbg_printf("send_push_msg is fail ! \n");
 		goto fail;
 	}
 
-	return(0);
 
-	
+	return(0);
 fail:
 
 	if(NULL != rpacket)
@@ -104,83 +85,118 @@ fail:
 }
 
 
-int  handle_peer_ask(void * arg)
+
+int  process_peer_ask(void * dev,void * arg)
 {
 
+
+	dbg_printf("process_peer_ask \n");
+	camera_handle_t * camera_dev = (camera_handle_t*)dev;
+	if(NULL == camera_dev || NULL == camera_dev->send)
+	{
+		dbg_printf("check the param ! \n");
+		return(-1);
+	}
+	net_send_handle_t * send_handle = camera_dev->send;
+	
 	struct sockaddr * src_addres = (struct sockaddr *)arg;
 	packet_header_t * header =	(packet_header_t *)(src_addres+1); 
 	peer_ask_packet_t * packet = (peer_ask_packet_t*)(header);
-	
 	if(NULL == packet)
 	{
 		dbg_printf("the packet is not right ! \n");
 		return(-1);
 	}
-	netsend_remove_packet(packet->head.index);
-	if(0 == packet->head.ret)
-	{
-		send_loin_packet(&packet->dev_addr);
-		dbg_printf("i receive the peer ask ! \n");
-	}
-	else
-	{
-		dbg_printf("the dev is not exit ! \n");
-		return(-2);
-
-	}
+	send_remove_packet(send_handle,packet->head.index);
 	
 	return(0);
 }
 
 
-int  send_loin_packet(struct sockaddr * addr)
+
+
+static handle_packet_fun_t pfun_recvsystem[] = {
+
+	{REGISTER_PACKET,NULL},
+	{REGISTER_PACKET_ASK,NULL},
+	{PEER_PACKET,NULL},
+	{PEER_PACKET_ASK,process_peer_ask},
+	{LOIN_PACKET,NULL},
+	{LOIN_PACKET_ASK,NULL},
+	{HOLE_PACKET,NULL},
+	{HOLE_PACKET_ASK,NULL},
+	{ACTIVE_CHANNEL_PACKET,NULL},
+	{ACTIVE_CHANNEL_ASK,NULL},
+	{BEATHEART_PACKET,NULL},
+	{BEATHEART_PACKET_ASK,NULL},
+	{UNKNOW_PACKET,NULL},
+		
+};
+
+
+
+handle_packet_fun_t *  get_handle_packet_fun(void)
+{
+	return(pfun_recvsystem);
+}
+
+
+
+
+
+
+
+
+
+#if 0
+
+
+
+int  handle_hole_ask(void * arg)
 {
 
 
 	int ret = -1;
-	if(NULL == system_info)
+
+	system_handle_t * handle =system_info;
+	struct sockaddr * src_addres = (struct sockaddr *)arg;
+	packet_header_t * header =	(packet_header_t *)(src_addres+1); 
+	hole_packet_t * packet = (hole_packet_t*)(header);
+	
+	if(NULL == handle || NULL==packet)
 	{
 		dbg_printf("check the param ! \n");
 		return(-1);
 	}
-	system_handle_t * handle =system_info;
-	
-	send_packet_t *spacket = NULL;
-	loin_packet_t * rpacket = (loin_packet_t*)calloc(1,sizeof(*rpacket));
+
+
+	hole_packet_ask_t * rpacket = calloc(1,sizeof(*rpacket));
 	if(NULL == rpacket)
 	{
 		dbg_printf("calloc is fail ! \n");
 		goto fail;
 	}
 
-	spacket = (send_packet_t*)calloc(1,sizeof(*spacket));
+	send_packet_t *spacket = calloc(1,sizeof(*spacket));
 	if(NULL == spacket)
 	{
 		dbg_printf("calloc is fail ! \n");
 		goto fail;
 	}
 
-	rpacket->head.type = LOIN_PACKET;
-	rpacket->head.index = 0xFFFF;
-	rpacket->head.packet_len = sizeof(loin_packet_t)-sizeof(packet_header_t);
-	rpacket->head.ret = 0xFF;
-	
-	rpacket->dev_addr = *addr;
-	memset(rpacket->dev_name,'\0',sizeof(rpacket->dev_name));
-	strcpy(rpacket->dev_name,"camera_0");
+	rpacket->head.type = HOLE_PACKET_ASK;
+	rpacket->head.index = packet->head.index;
+	rpacket->head.packet_len = sizeof(rpacket->dev_addr);
+	rpacket->dev_addr = packet->dev_addr;
 
-	
+
 	spacket->sockfd = handle->servce_socket;
 	spacket->data = rpacket;
-	spacket->length = sizeof(loin_packet_t);
+	spacket->length = sizeof(loin_packet_ask_t);
 	spacket->to = handle->servaddr;
 
-	spacket->type = RELIABLE_PACKET;
-	spacket->is_resend = 0;
-	spacket->resend_times = 0;
-	spacket->index = 0xFFFF;
-	spacket->ta.tv_sec = 0;
-	spacket->ta.tv_usec = 800*1000;
+	spacket->type = UNRELIABLE_PACKET;
+	
 	ret = netsend_push_msg(spacket);
 	if(ret != 0)
 	{
@@ -188,9 +204,11 @@ int  send_loin_packet(struct sockaddr * addr)
 		goto fail;
 	}
 
-	return(0);
+
+	loin_start_process(&packet->dev_addr);
 
 	
+	return(0);
 fail:
 
 	if(NULL != rpacket)
@@ -204,26 +222,6 @@ fail:
 		free(spacket);
 		spacket = NULL;
 	}
-	return(0);
-}
-
-
-int  handle_loin_ask(void * arg)
-{
-
-	struct sockaddr * src_addres = (struct sockaddr *)arg;
-	packet_header_t * header =	(packet_header_t *)(src_addres+1); 
-	loin_packet_ask_t * packet = (loin_packet_ask_t*)(header);
-	
-	if(NULL == packet)
-	{
-		dbg_printf("the packet is not right ! \n");
-		return(-1);
-	}
-	netsend_remove_packet(packet->head.index);
-	dbg_printf("handle_loin_ask \n");
-	loin_start_process(&packet->dev_addr);
-	
 	return(0);
 }
 
@@ -244,29 +242,29 @@ int send_active_channel_packet(void * dest_addr)
 		return(-1);
 	}
 
-	send_packet_t *spacket = NULL;
-	active_channle_ask_t * rpacket = (active_channle_ask_t*)calloc(1,sizeof(*rpacket));
+
+	active_channle_t * rpacket = calloc(1,sizeof(*rpacket));
 	if(NULL == rpacket)
 	{
 		dbg_printf("calloc is fail ! \n");
 		goto fail;
 	}
 
-	spacket = (send_packet_t*)calloc(1,sizeof(*spacket));
+	send_packet_t *spacket = calloc(1,sizeof(*spacket));
 	if(NULL == spacket)
 	{
 		dbg_printf("calloc is fail ! \n");
 		goto fail;
 	}
 
-	rpacket->head.type = ACTIVE_CHANNEL_ASK;
+	rpacket->head.type = ACTIVE_CHANNEL_PACKET;
 	rpacket->head.index = 0xFFFF;
 	rpacket->head.packet_len = sizeof(rpacket->a);
 
 
 	spacket->sockfd = handle->servce_socket;
 	spacket->data = rpacket;
-	spacket->length = sizeof(active_channle_ask_t);
+	spacket->length =sizeof(active_channle_t);
 	spacket->to = *addr;
 
 	spacket->type = UNRELIABLE_PACKET;
@@ -297,7 +295,6 @@ fail:
 }
 
 
-
 int  handle_active_channel_ask(void * arg)
 {
 
@@ -316,10 +313,6 @@ int  handle_active_channel_ask(void * arg)
 	return(0);
 }
 
-
-
-
-
 int handle_packet_init(void)
 {
 	if(NULL != system_info)
@@ -328,7 +321,10 @@ int handle_packet_init(void)
 		return(-1);
 	}
 
-	system_info = (system_handle_t*)system_gethandle();
+	system_info = socket_gethandle();
 	
 	return(0);
 }
+
+
+#endif

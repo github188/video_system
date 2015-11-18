@@ -1,35 +1,30 @@
-#ifndef _system_init_h
+#ifndef  _system_init_h
 #define _system_init_h
 
+#include "socket_init.h"
+#include "net_send.h"
+#include "net_recv.h"
+#include "handle_packet.h"
 
-#ifdef __cplusplus
-extern "C"
+
+
+
+
+typedef struct camera_handle
 {
-#endif
+	
+	socket_handle_t * socket;
+	net_send_handle_t * send;
+	net_recv_handle_t * recv;
+	handle_packet_fun_t * fun;
+
+}camera_handle_t;
 
 
-#include <sys/types.h>
-#include <sys/socket.h>
 
+extern  camera_handle_t * camera;
 
-typedef struct system_handle
-{
-	int local_socket;
-	int servce_socket;
-	struct sockaddr	servaddr;
-
-}system_handle_t;
-
-
-void * system_gethandle(void);
 int system_init(void);
 
 
-
-#ifdef __cplusplus
-};
-#endif
-
-
 #endif  /*_system_init_h*/
-
