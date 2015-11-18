@@ -23,6 +23,7 @@ LOCAL_DEV_SRC := \
 		$(LOCAL_SRC)/handle_packet.c  \
 		$(LOCAL_SRC)/eventfd.c  \
 		$(LOCAL_SRC)/system_init.c	\
+		$(LOCAL_SRC)/process_loin.c \
 		$(LOCAL_SRC)/ring_queue.c  \
 		$(LOCAL_SRC)/main.c	
 

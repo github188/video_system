@@ -96,6 +96,22 @@ int system_init(void)
 		goto fail;
 	}
 
+
+
+	camera->loin = loin_handle_new();
+	if(NULL == camera->loin)
+	{
+		dbg_printf("loin_handle_new is fail ! \n");
+		goto fail;
+	}
+	if(NULL == camera->loin->loin_fun )
+	{
+		dbg_printf("check the pthread fun of loin_fun ! \n");
+		goto fail;
+	}
+
+
+
 	
 	ret = pthread_create(&camera->send->netsend_ptid,NULL,camera->send->send_fun,camera);
 	pthread_detach(camera->send->netsend_ptid);
@@ -110,6 +126,9 @@ int system_init(void)
 
 	ret = pthread_create(&camera->recv->netprocess_ptid,NULL,camera->recv->process_fun,camera);
 	pthread_detach(camera->recv->netprocess_ptid);
+
+	ret = pthread_create(&camera->loin->loin_ptid,NULL,camera->loin->loin_fun,camera);
+	pthread_detach(camera->loin->loin_ptid);
 
 
 	
@@ -134,6 +153,11 @@ fail:
 		recv_handle_destroy(camera->recv);	
 	}
 
+	if(NULL != camera->loin)
+	{
+		loin_handle_destroy(camera->loin);
+		
+	}
 	if(NULL != camera)
 	{
 		free(camera);

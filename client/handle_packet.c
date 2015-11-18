@@ -111,8 +111,9 @@ int  process_peer_ask(void * dev,void * arg)
 	send_remove_packet(send_handle,packet->head.index);
 
 	if(0 != packet->head.ret)return(-1);
+	loin_start(camera_dev,&packet->dev_addr);
 
-	#if 1
+	#if 0
 
 	loin_packet_t * rpacket_dev = calloc(1,sizeof(*rpacket_dev));
 	if(NULL == rpacket_dev)
@@ -191,7 +192,7 @@ int  process_loin_ask(void * dev,void * arg)
 	if('c'+1 == packet->l)
 	{
 		dbg_printf("ccccccccccccccccccccccccccccc\n");
-		send_remove_packet(send_handle,packet->head.index);	
+		loin_stop(camera_dev);
 	}
 	else if('s'+1 == packet->l)
 	{
