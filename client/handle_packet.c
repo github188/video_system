@@ -113,6 +113,31 @@ int  process_peer_ask(void * dev,void * arg)
 }
 
 
+int  process_loin_ask(void * dev,void * arg)
+{
+
+
+	dbg_printf("process_loin_ask \n");
+	camera_handle_t * camera_dev = (camera_handle_t*)dev;
+	if(NULL == camera_dev || NULL == camera_dev->send)
+	{
+		dbg_printf("check the param ! \n");
+		return(-1);
+	}
+	net_send_handle_t * send_handle = camera_dev->send;
+	
+	struct sockaddr * src_addres = (struct sockaddr *)arg;
+	packet_header_t * header =	(packet_header_t *)(src_addres+1); 
+	loin_packet_ask_t * packet = (loin_packet_ask_t*)(header);
+	if(NULL == packet)
+	{
+		dbg_printf("the packet is not right ! \n");
+		return(-1);
+	}
+
+	
+	return(0);
+}
 
 
 static handle_packet_fun_t pfun_recvsystem[] = {
@@ -122,7 +147,7 @@ static handle_packet_fun_t pfun_recvsystem[] = {
 	{PEER_PACKET,NULL},
 	{PEER_PACKET_ASK,process_peer_ask},
 	{LOIN_PACKET,NULL},
-	{LOIN_PACKET_ASK,NULL},
+	{LOIN_PACKET_ASK,process_loin_ask},
 	{HOLE_PACKET,NULL},
 	{HOLE_PACKET_ASK,NULL},
 	{ACTIVE_CHANNEL_PACKET,NULL},

@@ -234,6 +234,60 @@ static int  process_peer_packet(void * dev_handle,void * pdata)
 		goto fail;
 	}
 
+	#if 1
+	if(flag != 0)return(-1);
+	
+	loin_packet_t * rpacket_dev = calloc(1,sizeof(*rpacket_dev));
+	if(NULL == rpacket_dev)
+	{
+		dbg_printf("calloc is fail ! \n");
+		goto fail;
+	}
+	send_packet_t *spacket_dev = calloc(1,sizeof(*spacket_dev));
+	if(NULL == spacket_dev)
+	{
+		dbg_printf("calloc is fail ! \n");
+		goto fail;
+	}
+	rpacket_dev->head.type = LOIN_PACKET;
+	rpacket_dev->head.index = 0xFFFF;
+	rpacket_dev->head.packet_len = sizeof(loin_packet_t);
+	rpacket_dev->head.ret = 0;
+	rpacket_dev->l = 's';
+	memmove(rpacket_dev->dev_name,packet->dev_name,sizeof(rpacket_dev->dev_name));
+
+	if(((struct sockaddr_in *)src_addres)->sin_addr.s_addr == ((struct sockaddr_in *)&handle->dev[dev_index]->dev_addr)->sin_addr.s_addr)
+	{
+		rpacket_dev->dev_addr = packet->localaddr;
+		((struct sockaddr_in*)(&rpacket_dev->dev_addr))->sin_port = ((struct sockaddr_in *)src_addres)->sin_port;
+	}
+	else
+	{
+		rpacket_dev->dev_addr = *src_addres;
+	}
+
+	spacket_dev->sockfd = handle->server_socket;
+	spacket_dev->data = rpacket_dev;
+	spacket_dev->length = sizeof(loin_packet_t);
+	spacket_dev->to = handle->dev[dev_index]->dev_addr;
+
+	spacket_dev->type = RELIABLE_PACKET;
+	spacket_dev->is_resend = 0;
+	spacket_dev->resend_times = 0;
+	spacket_dev->index = 0xFFFF;
+	spacket_dev->ta.tv_sec = 0;
+	spacket_dev->ta.tv_usec = 800*1000;
+	ret = server_push_sendmsg(handle,spacket_dev);
+	
+	if(ret != 0)
+	{
+		dbg_printf("netsend_push_msg is fail ! \n");
+		goto fail;
+	}
+
+
+	#endif
+
 
 	return(0);
 
@@ -255,6 +309,14 @@ fail:
 	return(-1);
 	
 }
+
+
+
+
+
+
+
+
 
 #if 0
 

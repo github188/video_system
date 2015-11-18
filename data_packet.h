@@ -111,16 +111,21 @@ typedef struct peer_ask_packet
 typedef struct loin_packet
 {
 	packet_header_t head;
-	struct sockaddr dev_addr;
 	char dev_name[64];
+	char l;
+	struct sockaddr dev_addr;
+
 }loin_packet_t;
 
 
 typedef struct loin_packet_ask
 {
 	packet_header_t head;
-	struct sockaddr dev_addr;
+	char l;
 }loin_packet_ask_t;
+
+
+
 
 
 

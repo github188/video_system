@@ -115,6 +115,98 @@ int  process_register_ask(void * dev,void * arg)
 
 
 
+int  process_loin_packet(void * dev,void * arg)
+{
+
+
+	dbg_printf("process_loin_packet \n");
+	int ret = -1;
+	camera_handle_t * camera_dev = (camera_handle_t*)dev;
+	if(NULL == camera_dev || NULL == camera_dev->send)
+	{
+		dbg_printf("check the param ! \n");
+		return(-1);
+	}
+
+	net_send_handle_t * send_handle = camera_dev->send;
+	struct sockaddr * src_addres = (struct sockaddr *)arg;
+	packet_header_t * header =	(packet_header_t *)(src_addres+1); 
+	loin_packet_t * packet = (loin_packet_t*)(header);
+	socket_handle_t * handle = camera_dev->socket;
+	if(NULL == packet)
+	{
+		dbg_printf("the packet is not right ! \n");
+		return(-1);
+	}
+
+	
+	if('s' != packet->l)
+	{
+		loin_packet_ask_t * rpacket = calloc(1,sizeof(*rpacket));
+		if(NULL == rpacket)
+		{
+			dbg_printf("calloc is fail ! \n");
+			return(-2);
+		}
+
+		send_packet_t *spacket = calloc(1,sizeof(*spacket));
+		if(NULL == spacket)
+		{
+			dbg_printf("calloc is fail ! \n");
+			free(rpacket);
+			rpacket = NULL;
+			return(-3);
+		}
+
+		rpacket->head.type = LOIN_PACKET_ASK;
+		rpacket->head.index = 0xFFFF;
+		rpacket->head.packet_len = sizeof(loin_packet_ask_t);
+		rpacket->l = 'c'+1;
+		
+
+		spacket->sockfd = handle->local_socket;
+		spacket->data = rpacket;
+		spacket->length = sizeof(loin_packet_ask_t);
+
+		spacket->to = packet->dev_addr;
+		#if 1
+		char * ipdev = NULL;
+		int port_dev = 0;
+		ipdev = socket_ntop(&packet->dev_addr);
+		if(NULL != ipdev)
+		{
+			dbg_printf("the peer is %s \n",ipdev);
+			free(ipdev);
+			ipdev = NULL;
+		}
+
+		port_dev = socket_get_port(&packet->dev_addr);
+		dbg_printf("the peer port is %d \n",port_dev);
+		#endif
+		spacket->type = RELIABLE_PACKET;
+		spacket->is_resend = 0;
+		spacket->resend_times = 0;
+		spacket->index = 0xFFFF;
+		spacket->ta.tv_sec = 0;
+		spacket->ta.tv_usec = 800*1000;
+		ret = send_push_msg(send_handle,spacket);
+		if(ret != 0)
+		{
+			dbg_printf("send_push_msg is fail ! \n");
+			goto fail;
+		}	
+
+
+
+	}
+
+
+
+	return(0);
+
+
+}
+
 
 static handle_packet_fun_t pfun_recvsystem[] = {
 
@@ -122,7 +214,7 @@ static handle_packet_fun_t pfun_recvsystem[] = {
 	{REGISTER_PACKET_ASK,process_register_ask},
 	{PEER_PACKET,NULL},
 	{PEER_PACKET_ASK,NULL},
-	{LOIN_PACKET,NULL},
+	{LOIN_PACKET,process_loin_packet},
 	{LOIN_PACKET_ASK,NULL},
 	{HOLE_PACKET,NULL},
 	{HOLE_PACKET_ASK,NULL},
