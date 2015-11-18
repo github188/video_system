@@ -140,7 +140,7 @@ int  process_loin_packet(void * dev,void * arg)
 	}
 
 	
-	if('s' != packet->l)
+	if('s' == packet->l)
 	{
 		loin_packet_ask_t * rpacket = calloc(1,sizeof(*rpacket));
 		if(NULL == rpacket)
@@ -169,20 +169,6 @@ int  process_loin_packet(void * dev,void * arg)
 		spacket->length = sizeof(loin_packet_ask_t);
 
 		spacket->to = packet->dev_addr;
-		#if 1
-		char * ipdev = NULL;
-		int port_dev = 0;
-		ipdev = socket_ntop(&packet->dev_addr);
-		if(NULL != ipdev)
-		{
-			dbg_printf("the peer is %s \n",ipdev);
-			free(ipdev);
-			ipdev = NULL;
-		}
-
-		port_dev = socket_get_port(&packet->dev_addr);
-		dbg_printf("the peer port is %d \n",port_dev);
-		#endif
 		spacket->type = RELIABLE_PACKET;
 		spacket->is_resend = 0;
 		spacket->resend_times = 0;
@@ -193,10 +179,19 @@ int  process_loin_packet(void * dev,void * arg)
 		if(ret != 0)
 		{
 			dbg_printf("send_push_msg is fail ! \n");
-			goto fail;
+			free(rpacket);
+			rpacket = NULL;
+			free(spacket);
+			spacket = NULL;
 		}	
 
 
+
+	}
+	else if('c' == packet->l)
+	{
+
+	
 
 	}
 
