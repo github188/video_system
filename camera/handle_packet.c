@@ -266,8 +266,6 @@ static handle_packet_fun_t pfun_recvsystem[] = {
 	{PEER_PACKET_ASK,NULL},
 	{LOIN_PACKET,process_loin_packet},
 	{LOIN_PACKET_ASK,NULL},
-	{HOLE_PACKET,NULL},
-	{HOLE_PACKET_ASK,NULL},
 	{ACTIVE_CHANNEL_PACKET,NULL},
 	{ACTIVE_CHANNEL_ASK,NULL},
 	{BEATHEART_PACKET,NULL},
