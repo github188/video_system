@@ -53,13 +53,14 @@ static int  recv_push_msg(net_recv_handle_t * recv_handle, void * data )
 static void * recv_data_fun(void * arg)
 {
 
-	net_recv_handle_t  * handle = (net_recv_handle_t*)arg;
-	if(NULL == camera || camera->socket->local_socket <= 0)
+	camera_handle_t * camera_dev = (camera_handle_t*)arg;
+	net_recv_handle_t  * handle = (net_recv_handle_t*)camera_dev->recv;
+	if(NULL == camera_dev || camera_dev->socket->local_socket <= 0)
 	{
 		dbg_printf("the recv socket is not ok ! \n");
 		return(NULL);
 	}
-	int recv_socket = camera->socket->local_socket;
+	int recv_socket = camera_dev->socket->local_socket;
 
 	
 	int epfd = -1;
@@ -144,14 +145,16 @@ static void * recv_data_fun(void * arg)
 
 static void *  recv_process_fun(void * arg)
 {
-	net_recv_handle_t * recv = (net_recv_handle_t * )arg;
-	if(NULL == recv || NULL == camera)
+
+	camera_handle_t * camera_dev = (camera_handle_t*)arg;
+	net_recv_handle_t * recv = (net_recv_handle_t * )camera_dev->recv;
+	if(NULL == recv || NULL == camera_dev)
 	{
 		dbg_printf("please check the param ! \n");
 		return(NULL);
 	}
 	
-	handle_packet_fun_t * fun = camera->fun;
+	handle_packet_fun_t * fun = camera_dev->fun;
 	if(NULL == fun)
 	{
 		dbg_printf("check the fun ! \n");
@@ -181,12 +184,12 @@ static void *  recv_process_fun(void * arg)
 
 		header = (packet_header_t *)(pdata+sizeof(struct sockaddr));
 		
-		for(fun = camera->fun; UNKNOW_PACKET != fun->type ;fun += 1)
+		for(fun = camera_dev->fun; UNKNOW_PACKET != fun->type ;fun += 1)
 		{
 			if(header->type != fun->type)continue;
 			if(NULL != fun->handle_packet)
 			{
-				fun->handle_packet(pdata);
+				fun->handle_packet(camera_dev,pdata);
 		
 			}
 			

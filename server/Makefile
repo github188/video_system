@@ -1,8 +1,6 @@
 
 
 
-
-
 CC = gcc
 
 
@@ -15,8 +13,10 @@ LOCAL_SRC =  .
 
 
 LOCAL_DEV_SRC := \
+		../common.c  \
 		$(LOCAL_SRC)/ring_queue.c	\
 		$(LOCAL_SRC)/time_unitl.c \
+		$(LOCAL_SRC)/handle_packet.c  \
 		$(LOCAL_SRC)/server.c	
 
 all:

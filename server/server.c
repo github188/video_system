@@ -1,21 +1,6 @@
-#include <stdio.h>
-#include <unistd.h>
-#include <stdlib.h>
-#include <string.h>
-#include <errno.h>
-#include <fcntl.h>
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-#include <netdb.h>
-#include <sys/epoll.h>
-#include <sys/time.h>
-#include <time.h>
-#include "data_packet.h"
-#include "ring_queue.h"
-#include "time_unitl.h"
-#include "common.h"
+
+#include "server.h"
+
 
 
 #undef  DBG_ON
@@ -25,276 +10,11 @@
 
 
 
-#define		RESEND_PACKET_MAX_NUM	(1024)
-#define		RESEND_TIMES			(3)
-#define		RESEND_TIME_INTERVAL	(800)  /*ms*/
-
-#define	 SERVER_PORT	(8003u)
-
-
-#define	 DEVICE_MAX_NUM			(4096u)
-
-
-typedef  struct  dev_info
-{
-	int is_run;
-	struct sockaddr dev_addr;
-	char dev_name[60];
-	
-}dev_info_t;
-
-
-typedef struct handle_fun
-{
-	packet_type_m type;
-	int  (*handle_packet)(void * data);
-}handle_fun_t;
-
-
-typedef struct server_handle
-{
-	int server_socket;
-	
-	pthread_mutex_t mutex_server;
-	pthread_cond_t cond_server;
-	ring_queue_t server_msg_queue;
-	volatile unsigned int server_msg_num;
-
-
-	pthread_mutex_t mutex_send;
-	pthread_cond_t cond_send;
-	ring_queue_t send_msg_queue;
-	volatile unsigned int send_msg_num;
-
-
-	void * resend[RESEND_PACKET_MAX_NUM];
-	volatile int packet_num; 
-	pthread_mutex_t mutex_resend;
-	pthread_cond_t cond_resend;
-	volatile unsigned int resend_msg_num;
-
-	dev_info_t * dev[DEVICE_MAX_NUM];
-	
-}server_handle_t;
-
-
-static server_handle_t * handle = NULL;
 
 
 
 
-#if 1
-
-char * netlib_sock_ntop(struct sockaddr *sa)
-{
-
-	if(NULL == sa  )
-	{
-		dbg_printf("check the param \n");
-		return(NULL);
-	}
-	#define  DATA_LENGTH	128
-	
-	char * str  = calloc(1,sizeof(char)*DATA_LENGTH);
-	if(NULL == str)
-	{
-		dbg_printf("calloc is fail\n");
-		return(NULL);
-	}
-
-	switch(sa->sa_family)
-	{
-		case AF_INET:
-		{
-
-			struct sockaddr_in * sin = (struct sockaddr_in*)sa;
-
-			if(inet_ntop(AF_INET,&(sin->sin_addr),str,DATA_LENGTH) == NULL)
-			{
-				free(str);
-				str = NULL;
-				return(NULL);	
-			}
-			return(str);
-
-		}
-		default:
-		{
-			free(str);
-			str = NULL;
-			return(NULL);
-		}
-
-
-	}
-			
-    return (NULL);
-}
-
-
-int  netlib_sock_get_port(const struct sockaddr *sa)
-{
-	if(NULL == sa)
-	{
-		dbg_printf("check the param\n");
-		return(-1);
-	}
-	switch (sa->sa_family)
-	{
-		case AF_INET: 
-		{
-			struct sockaddr_in	*sin = (struct sockaddr_in *) sa;
-
-			return(ntohs(sin->sin_port));
-		}
-
-
-	}
-
-    return(-1);
-}
-
-#endif
-
-
-static int server_socket_init(void * arg)
-{
-
-	int ret = -1;
-	int value = 0;
-	if(NULL == arg)
-	{
-		dbg_printf("please check the param ! \n");
-		return(-1);
-	}
-	server_handle_t * server = (server_handle_t*)arg;
-
-	server->server_socket = socket(AF_INET, SOCK_DGRAM, 0);
-
-	struct sockaddr_in	servaddr;
-	bzero(&servaddr, sizeof(servaddr));
-	servaddr.sin_family      = AF_INET;
-	servaddr.sin_addr.s_addr = htonl(INADDR_ANY);
-	servaddr.sin_port        = htons(SERVER_PORT);
-	int buff_size = 32 * 1024;
-	setsockopt(server->server_socket, SOL_SOCKET, SO_RCVBUF, &buff_size, sizeof(buff_size));
-	setsockopt(server->server_socket, SOL_SOCKET, SO_SNDBUF, (char*)&buff_size, sizeof(buff_size));
-
-	value = fcntl(server->server_socket,F_GETFL,0);
-	ret = fcntl(server->server_socket, F_SETFL, value|O_NONBLOCK);
-	if(ret < 0)
-	{
-		dbg_printf("F_SETFL fail ! \n");
-		return(-2);
-	}
-	fcntl(server->server_socket, F_SETFD, FD_CLOEXEC);
-	ret = bind(server->server_socket, (struct sockaddr *) &servaddr, sizeof(servaddr));
-	if(ret != 0 )
-	{
-		dbg_printf("bind is fail ! \n");
-		return(-3);
-	}
-
-	return(0);	
-}
-
-	
-
-
-
-static int server_init(void)
-{
-
-	int ret = -1;
-	if(NULL != handle)
-	{
-		dbg_printf("handle has been init ! \n");
-		return(-1);
-	}
-	handle = calloc(1,sizeof(1,*handle));
-	if(NULL == handle)
-	{
-		dbg_printf("calloc is fail ! \n");
-		return(-1);
-	}
-	ret = server_socket_init(handle);
-	if(ret != 0)
-	{
-		dbg_printf("server_socket_init is fail ! \n");
-		goto fail;
-	}
-
-	ret = ring_queue_init(&handle->server_msg_queue, 4096);
-	if(ret < 0 )
-	{
-		dbg_printf("ring_queue_init  fail \n");
-		return(-3);
-	}
-    pthread_mutex_init(&(handle->mutex_server), NULL);
-    pthread_cond_init(&(handle->cond_server), NULL);
-	handle->server_msg_num = 0;
-
-
-	ret = ring_queue_init(&handle->send_msg_queue, 1024);
-	if(ret < 0 )
-	{
-		dbg_printf("ring_queue_init  fail \n");
-		return(-4);
-	}
-    pthread_mutex_init(&(handle->mutex_send), NULL);
-    pthread_cond_init(&(handle->cond_send), NULL);
-	handle->send_msg_num = 0;
-
-
-	int i = 0;
-	handle->packet_num = 0;
-	for(i=0;i<RESEND_PACKET_MAX_NUM;++i)
-		handle->resend[i] = NULL;
-	 pthread_mutex_init(&(handle->mutex_resend), NULL);
-	 pthread_cond_init(&(handle->cond_resend), NULL);
-	 handle->resend_msg_num = 0;
-
-
-	 
-	
-	for(i=0;i<DEVICE_MAX_NUM;++i)
-	{
-		handle->dev[i] = calloc(1,sizeof(dev_info_t));
-		if(NULL == handle->dev[i])
-		{
-			dbg_printf("calloc is fail ! \n");
-			goto fail;
-		}
-		handle->dev[i]->is_run = 0;
-	}
-		
-
-
-	
-	return(0);
-
-fail:
-
-
-	for(i=0;i<DEVICE_MAX_NUM;++i)
-	{
-		if(NULL != handle->dev[i])
-		{
-			free(handle->dev[i]);
-			handle->dev[i] = NULL;
-		}
-	}
-	
-	if(NULL != handle)
-	{
-		free(handle);
-		handle = NULL;
-	}
-	return(-1);
-}
-
-
-int  server_push_recvmsg(void * data )
+int  server_push_recvmsg(server_handle_t * handle,void * data )
 {
 
 	int ret = 1;
@@ -337,7 +57,7 @@ int  server_push_recvmsg(void * data )
 }
 
 
-int  server_push_sendmsg(void * data )
+int  server_push_sendmsg(server_handle_t * handle,void * data )
 {
 
 	int ret = 1;
@@ -382,7 +102,7 @@ int  server_push_sendmsg(void * data )
 }
 
 
-int netsend_remove_packet(int index)
+int remove_send_packets(server_handle_t * handle,int index)
 {
 
 	if(RESEND_PACKET_MAX_NUM < index || NULL == handle)
@@ -425,494 +145,11 @@ int netsend_remove_packet(int index)
 }
 
 
-static int is_digit(char * str)
+
+static void *  resend_pthread_fun(void * arg)
 {
-	int i = 0;
-	if(NULL == str)return(0);
-
-	for(i=0;i<strlen(str);++i)
-	{
-		if(str[i] >= '0' && str[i] <='9')continue;
-		return(0);
-	}
-	return(1);
-}
-
-
-static int  handle_register_packet(void * pdata)
-{
-
-
-	int ret = -1;
-	int flag = 0;
-	if(NULL == pdata ||  NULL==handle)
-	{
-		dbg_printf("please check the param ! \n");
-		goto fail;
-	}
-
-	struct sockaddr * src_addres = (struct sockaddr *)pdata;
-	packet_header_t * header =	(packet_header_t *)(src_addres+1); 
-	register_packet_t * packet = (register_packet_t*)(header);
-	#if 1
-	char * ipdev = NULL;
-	int port_dev = 0;
-	ipdev = netlib_sock_ntop(src_addres);
-	if(NULL != ipdev)
-	{
-		dbg_printf("the dev_ip is %s \n",ipdev);
-		free(ipdev);
-		ipdev = NULL;
-	}
-
-	port_dev = netlib_sock_get_port(src_addres);
-	dbg_printf("the dev port is %d \n",port_dev);
-	
-
-	#endif
-	
-	if('r' != packet->x || header->type != REGISTER_PACKET)
-	{
-		dbg_printf("this is not the right packet ! \n");
-		return(-2);
-	}
-
-	char * pchar = strchr(packet->dev_name,'_');
-	
-	if(NULL == pchar || 0==is_digit(pchar+1))
-	{
-		dbg_printf("the dev name is not right ! \n");
-		flag = 1;
-	}
-	int dev_index = atoi(pchar+1);
-	if(dev_index >= DEVICE_MAX_NUM)
-	{
-		dbg_printf("the dev name out of the limit ! \n");
-		flag = 2;
-	}
-	if(handle->dev[dev_index]->is_run)
-	{
-		dbg_printf("the dev has been register ! \n");
-		flag = 3;
-	}
-
-	if(0 == flag)
-	{
-		handle->dev[dev_index]->is_run = 1;
-		handle->dev[dev_index]->dev_addr = *src_addres;
-		memmove(handle->dev[dev_index]->dev_name,packet->dev_name,sizeof(handle->dev[dev_index]->dev_name));
-		dbg_printf("the dev name is %s \n",handle->dev[dev_index]->dev_name);
-	}
-
-	register_ask_packet_t * rpacket = calloc(1,sizeof(*rpacket));
-	if(NULL == rpacket)
-	{
-		dbg_printf("calloc is fail ! \n");
-		goto fail;
-	}
-	send_packet_t *spacket = calloc(1,sizeof(*spacket));
-	if(NULL == spacket)
-	{
-		dbg_printf("calloc is fail ! \n");
-		goto fail;
-	}
-	rpacket->head.type = REGISTER_PACKET_ASK;
-	rpacket->head.index = packet->head.index;
-	rpacket->head.packet_len = sizeof(rpacket->x);
-	rpacket->head.ret = flag;
-	rpacket->x = 'r'+1;
-	memset(rpacket->dev_name,'\0',sizeof(rpacket->dev_name));
-	memmove(rpacket->dev_name,packet->dev_name,sizeof(rpacket->dev_name));
-	
-	spacket->sockfd = handle->server_socket;
-	spacket->data = rpacket;
-	spacket->length = sizeof(register_ask_packet_t);
-	spacket->to = *src_addres;
-
-	spacket->type = UNRELIABLE_PACKET;
-	ret = server_push_sendmsg(spacket);
-	
-	if(ret != 0)
-	{
-		dbg_printf("netsend_push_msg is fail ! \n");
-		goto fail;
-	}
-
-	return(0);
-
-fail:
-
-
-	if(NULL != rpacket)
-	{
-		free(rpacket);
-		rpacket = NULL;
-	}
-
-	if(NULL != spacket)
-	{
-		free(spacket);
-		spacket = NULL;
-	}
-
-	return(-1);
-	
-}
-
-
-static int  handle_peer_packet(void * pdata)
-{
-
-
-	int ret = -1;
-	int flag = 0;
-	if(NULL == pdata ||  NULL==handle)
-	{
-		dbg_printf("please check the param ! \n");
-		goto fail;
-	}
-
-	struct sockaddr * src_addres = (struct sockaddr *)pdata;
-	packet_header_t * header =	(packet_header_t *)(src_addres+1); 
-	peer_packet_t * packet = (peer_packet_t*)(header);
-	
-
-	if(header->type != PEER_PACKET)
-	{
-		dbg_printf("this is not the right packet ! \n");
-		return(-2);
-	}
-
-	char * pchar = strchr(packet->dev_name,'_');
-	
-	if(NULL == pchar || 0==is_digit(pchar+1))
-	{
-		dbg_printf("the dev name is not right ! \n");
-		flag = 1;
-	}
-	int dev_index = atoi(pchar+1);
-	if(dev_index >= DEVICE_MAX_NUM)
-	{
-		dbg_printf("the dev name out of the limit ! \n");
-		flag = 2;
-	}
-
-	if(NULL ==handle->dev[dev_index] || 0==handle->dev[dev_index]->is_run)
-	{
-		flag = 3;	
-	}
-
-	peer_ask_packet_t * rpacket = calloc(1,sizeof(*rpacket));
-	if(NULL == rpacket)
-	{
-		dbg_printf("calloc is fail ! \n");
-		goto fail;
-	}
-	send_packet_t *spacket = calloc(1,sizeof(*spacket));
-	if(NULL == spacket)
-	{
-		dbg_printf("calloc is fail ! \n");
-		goto fail;
-	}
-	rpacket->head.type = PEER_PACKET_ASK;
-	rpacket->head.index = packet->head.index;
-	rpacket->head.packet_len = sizeof(rpacket->dev_addr);
-	rpacket->head.ret = flag;
-
-	if(0 == flag)
-	rpacket->dev_addr = handle->dev[dev_index]->dev_addr;
-
-	
-	spacket->sockfd = handle->server_socket;
-	spacket->data = rpacket;
-	spacket->length = sizeof(peer_ask_packet_t);
-	spacket->to = *src_addres;
-
-	spacket->type = UNRELIABLE_PACKET;
-	ret = server_push_sendmsg(spacket);
-	
-	if(ret != 0)
-	{
-		dbg_printf("netsend_push_msg is fail ! \n");
-		goto fail;
-	}
-
-
-	return(0);
-
-fail:
-
-
-	if(NULL != rpacket)
-	{
-		free(rpacket);
-		rpacket = NULL;
-	}
-
-	if(NULL != spacket)
-	{
-		free(spacket);
-		spacket = NULL;
-	}
-
-	return(-1);
-	
-}
-
-
-
-
-
-
-int send_hole_packet(struct sockaddr dev_addr,struct sockaddr to_addr)
-{
-
-	int ret = -1;
-	int flag = 0;
-	if(NULL==handle)
-	{
-		dbg_printf("please check the param ! \n");
-		return(-1);
-	}
-
-	hole_packet_t * rpacket = calloc(1,sizeof(*rpacket));
-	if(NULL == rpacket)
-	{
-		dbg_printf("calloc is fail ! \n");
-		goto fail;
-	}
-	send_packet_t *spacket = calloc(1,sizeof(*spacket));
-	if(NULL == spacket)
-	{
-		dbg_printf("calloc is fail ! \n");
-		goto fail;
-	}
-	rpacket->head.type = HOLE_PACKET;
-	rpacket->head.index = 0xFF;
-	rpacket->head.packet_len = sizeof(rpacket->dev_addr);
-	rpacket->head.ret = 0;
-	rpacket->dev_addr = dev_addr;
-
-	
-	spacket->sockfd = handle->server_socket;
-	spacket->data = rpacket;
-	spacket->length = sizeof(hole_packet_t);
-	spacket->to = to_addr;
-
-
-	spacket->type = RELIABLE_PACKET;
-	spacket->is_resend = 0;
-	spacket->resend_times = 0;
-	spacket->index = 0xFFFF;
-	spacket->ta.tv_sec = 0;
-	spacket->ta.tv_usec = 800*1000;
-	ret = server_push_sendmsg(spacket);
-
-
-	if(ret != 0)
-	{
-		dbg_printf("netsend_push_msg is fail ! \n");
-		goto fail;
-	}
-
-
-	return(0);
-
-fail:
-
-
-	if(NULL != rpacket)
-	{
-		free(rpacket);
-		rpacket = NULL;
-	}
-
-	if(NULL != spacket)
-	{
-		free(spacket);
-		spacket = NULL;
-	}
-
-	return(-1);
-
-
-}
-
-
-
-static int  handle_loin_packet(void * pdata)
-{
-
-
-	int ret = -1;
-	int flag = 0;
-	if(NULL == pdata ||  NULL==handle)
-	{
-		dbg_printf("please check the param ! \n");
-		goto fail;
-	}
-
-	struct sockaddr * src_addres = (struct sockaddr *)pdata;
-	packet_header_t * header =	(packet_header_t *)(src_addres+1); 
-	loin_packet_t * packet = (loin_packet_t*)(header);
-
-	#if 1
-	char * client_ip = NULL;
-	int client_dev = 0;
-	client_ip = netlib_sock_ntop(src_addres);
-	if(NULL != client_ip)
-	{
-		dbg_printf("the client_ip is %s \n",client_ip);
-		free(client_ip);
-		client_ip = NULL;
-	}
-
-	client_dev = netlib_sock_get_port(src_addres);
-	dbg_printf("the client port is %d \n",client_dev);
-	
-
-	#endif
-	
-	if(header->type != LOIN_PACKET)
-	{
-		dbg_printf("this is not the right packet ! \n");
-		return(-2);
-	}
-
-	char * pchar = strchr(packet->dev_name,'_');
-	
-	if(NULL == pchar || 0==is_digit(pchar+1))
-	{
-		dbg_printf("the dev name is not right ! \n");
-		flag = 1;
-		goto out;
-	}
-	int dev_index = atoi(pchar+1);
-	if(dev_index >= DEVICE_MAX_NUM)
-	{
-		dbg_printf("the dev name out of the limit ! \n");
-		flag = 2;
-		goto out;
-	}
-
-	if(NULL ==handle->dev[dev_index])
-	{
-		flag = 3;
-		goto out;
-	}
-
-	ret = memcmp(&((struct sockaddr_in *)&(handle->dev[dev_index]->dev_addr))->sin_addr,&((struct sockaddr_in *)&packet->dev_addr)->sin_addr,sizeof(struct in_addr));
-	if(ret != 0 )
-	{
-		flag = 4;
-		goto out;
-	}
-
-out:
-
-	ret = 0;
-	loin_packet_ask_t * rpacket = calloc(1,sizeof(*rpacket));
-	if(NULL == rpacket)
-	{
-		dbg_printf("calloc is fail ! \n");
-		goto fail;
-	}
-	send_packet_t *spacket = calloc(1,sizeof(*spacket));
-	if(NULL == spacket)
-	{
-		dbg_printf("calloc is fail ! \n");
-		goto fail;
-	}
-	rpacket->head.type = LOIN_PACKET_ASK;
-	rpacket->head.index = packet->head.index;
-	rpacket->head.packet_len = sizeof(rpacket->dev_addr);
-	rpacket->head.ret = flag;
-
-	if(0 == flag)
-	rpacket->dev_addr = handle->dev[dev_index]->dev_addr;
-
-	
-	spacket->sockfd = handle->server_socket;
-	spacket->data = rpacket;
-	spacket->length = sizeof(loin_packet_ask_t);
-	spacket->to =*src_addres;
-
-	spacket->type = UNRELIABLE_PACKET;
-	ret = server_push_sendmsg(spacket);
-	
-	if(ret != 0)
-	{
-		dbg_printf("netsend_push_msg is fail ! \n");
-		goto fail;
-	}
-
-	if(0 == flag)
-	{
-		send_hole_packet(*src_addres,packet->dev_addr);
-	}
-
-
-	return(0);
-
-fail:
-
-
-	if(NULL != rpacket)
-	{
-		free(rpacket);
-		rpacket = NULL;
-	}
-
-	if(NULL != spacket)
-	{
-		free(spacket);
-		spacket = NULL;
-	}
-
-	return(-1);
-	
-}
-
-
-int  handle_hole_ask(void * arg)
-{
-
-	struct sockaddr * src_addres = (struct sockaddr *)arg;
-	packet_header_t * header =	(packet_header_t *)(src_addres+1); 
-	hole_packet_ask_t * packet = (hole_packet_ask_t*)(header);
-	
-
-	if(NULL == packet)
-	{
-		dbg_printf("the packet is not right ! \n");
-		return(-1);
-	}
-	netsend_remove_packet(packet->head.index);
-	
-	return(0);
-}
-
-
-static handle_fun_t pfun_system[] = {
-
-	{REGISTER_PACKET,handle_register_packet},
-	{REGISTER_PACKET_ASK,NULL},
-	{PEER_PACKET,handle_peer_packet},
-	{PEER_PACKET_ASK,NULL},
-	{LOIN_PACKET,handle_loin_packet},
-	{LOIN_PACKET_ASK,NULL},
-	{HOLE_PACKET,NULL},
-	{HOLE_PACKET_ASK,handle_hole_ask},
-	{BEATHEART_PACKET,NULL},
-	{BEATHEART_PACKET_ASK,NULL},
-		
-};
-
-
-static void *  server_recv_pthread(void * arg)
-{
-	server_handle_t * server = (server_handle_t * )arg;
-	if(NULL == server)
+	server_handle_t * send = (server_handle_t * )arg;
+	if(NULL == send)
 	{
 		dbg_printf("please check the param ! \n");
 		return(NULL);
@@ -920,44 +157,41 @@ static void *  server_recv_pthread(void * arg)
 
 	int ret = -1;
 	int is_run = 1;
-	packet_header_t * header = NULL;
-	void * data;
-	int i = DUMP_PACKET;
-	
+	int i = 0;
+	send_packet_t * packet = NULL;
+	struct timeval time_pass;
 	while(is_run)
 	{
-        pthread_mutex_lock(&(server->mutex_server));
-        while (0 == server->server_msg_num)
+        pthread_mutex_lock(&(send->mutex_resend));
+        while (0 == send->resend_msg_num)
         {
-            pthread_cond_wait(&(server->cond_server), &(server->mutex_server));
+            pthread_cond_wait(&(send->cond_resend), &(send->mutex_resend));
         }
-		ret = ring_queue_pop(&(server->server_msg_queue), (void **)&data);
-		pthread_mutex_unlock(&(server->mutex_server));
 		
-		volatile unsigned int *handle_num = &(server->server_msg_num);
-		fetch_and_sub(handle_num, 1);  
-		
-		if(ret != 0 || NULL == data)continue;
-
-		header = (packet_header_t *)(data+sizeof(struct sockaddr));
-		for(i=0;i<sizeof(pfun_system)/sizeof(pfun_system[0]);++i)
+		ret = get_time(&time_pass);
+		if(ret != 0)
 		{
-			if(header->type != pfun_system[i].type)continue;
-			if(NULL != pfun_system[i].handle_packet)
+			dbg_printf("error !! \n");
+			is_run = 0;
+			break;
+		}
+		for(i=0;i<RESEND_PACKET_MAX_NUM;++i)
+		{
+
+			if(NULL == send->resend[i])continue;
+			
+			packet = (send_packet_t*)(send->resend[i]);
+			if(timercmp(&time_pass,&packet->tp,>=))
 			{
-				pfun_system[i].handle_packet(data);
-		
+				packet->is_resend = 1;
+				packet->resend_times += 1;
+				server_push_sendmsg(send,send->resend[i]);
+				
 			}
 		}
+		pthread_mutex_unlock(&(send->mutex_resend));
 
-		if(NULL != data)
-		{
-			free(data);
-			data = NULL;
-
-		}
-
-
+		usleep(100*1000);
 
 	}
 
@@ -966,61 +200,7 @@ static void *  server_recv_pthread(void * arg)
 }
 
 
-
-
-
-static int server_disperse_packets(void * arg)
-{
-	if(NULL == arg)
-	{
-		dbg_printf("please check the param ! \n");
-		return(-1);
-	}
-	server_handle_t * server = (server_handle_t *)arg;
-	struct sockaddr from;
-	socklen_t addr_len = sizeof(struct sockaddr);
-	int len = 0;
-	int ret = -1;
-	char buff[1500];
-	packet_header_t * header = (packet_header_t*)(buff);
-	len = recvfrom(server->server_socket,buff,sizeof(buff), 0 , (struct sockaddr *)&from ,&addr_len); 
-	if(len <= 0 )
-	{
-		dbg_printf("the length is not right ! \n");
-		return(-2);
-	}
-
-	if(header->type <= DUMP_PACKET || header->type >= UNKNOW_PACKET )
-	{
-		dbg_printf("the packet is not in the limit ! \n");
-		return(-3);
-	}
-
-
-	void * data = calloc(1,sizeof(struct sockaddr)+sizeof(char)*len+1);
-	if(NULL == data)
-	{
-		dbg_printf("calloc is fail ! \n");
-		return(-4);
-	}
-	
-	memmove(data,&from,sizeof(struct sockaddr));
-	memmove((char*)data+sizeof(struct sockaddr),buff,len);
-	
-	ret = server_push_recvmsg(data);
-	if(0 != ret)
-	{
-		dbg_printf("server_push_msg is fail ! \n");
-		free(data);
-		data = NULL;
-	}
-
-	return(0);
-}
-
-
-
-static void * server_send_pthread(void * arg)
+static void * send_pthread_fun(void * arg)
 {
 	server_handle_t * send = (server_handle_t * )arg;
 	if(NULL == send)
@@ -1067,7 +247,6 @@ static void * server_send_pthread(void * arg)
 		while(count_send --)
 		{
 			ret = sendto(packet->sockfd,packet->data,packet->length,0,(struct sockaddr *)&packet->to,addr_len);
-			dbg_printf("ret =====  %d \n",ret);
 			if(-1 == ret)
 			{
 				if(errno == EINTR || errno == EAGAIN)
@@ -1174,52 +353,58 @@ static void * server_send_pthread(void * arg)
 }
 
 
-static void *  server_resend_pthread(void * arg)
+
+static void *  process_recv_fun(void * arg)
 {
-	server_handle_t * send = (server_handle_t * )arg;
-	if(NULL == send)
+	server_handle_t * server = (server_handle_t * )arg;
+	server->fun = get_handle_packet_fun();
+	if(NULL == server || NULL==server->fun)
 	{
 		dbg_printf("please check the param ! \n");
 		return(NULL);
 	}
-
+	handle_packet_fun_t * fun = server->fun;
 	int ret = -1;
 	int is_run = 1;
-	int i = 0;
-	send_packet_t * packet = NULL;
-	struct timeval time_pass;
+	packet_header_t * header = NULL;
+	void * data;
+	int i = DUMP_PACKET;
+	
 	while(is_run)
 	{
-        pthread_mutex_lock(&(send->mutex_resend));
-        while (0 == send->resend_msg_num)
+        pthread_mutex_lock(&(server->mutex_server));
+        while (0 == server->server_msg_num)
         {
-            pthread_cond_wait(&(send->cond_resend), &(send->mutex_resend));
+            pthread_cond_wait(&(server->cond_server), &(server->mutex_server));
         }
+		ret = ring_queue_pop(&(server->server_msg_queue), (void **)&data);
+		pthread_mutex_unlock(&(server->mutex_server));
 		
-		ret = get_time(&time_pass);
-		if(ret != 0)
-		{
-			dbg_printf("error !! \n");
-			is_run = 0;
-			break;
-		}
-		for(i=0;i<RESEND_PACKET_MAX_NUM;++i)
-		{
+		volatile unsigned int *handle_num = &(server->server_msg_num);
+		fetch_and_sub(handle_num, 1);  
+		
+		if(ret != 0 || NULL == data)continue;
 
-			if(NULL == send->resend[i])continue;
-			
-			packet = (send_packet_t*)(send->resend[i]);
-			if(timercmp(&time_pass,&packet->tp,>=))
+		header = (packet_header_t *)(data+sizeof(struct sockaddr));
+		for(fun = server->fun; UNKNOW_PACKET != fun->type ;fun += 1)
+		{
+			if(header->type != fun->type)continue;
+			if(NULL != fun->handle_packet)
 			{
-				packet->is_resend = 1;
-				packet->resend_times += 1;
-				server_push_sendmsg(send->resend[i]);
-				
+				fun->handle_packet(server,data);
+		
 			}
+			
 		}
-		pthread_mutex_unlock(&(send->mutex_resend));
 
-		usleep(100*1000);
+		if(NULL != data)
+		{
+			free(data);
+			data = NULL;
+
+		}
+
+
 
 	}
 
@@ -1231,39 +416,117 @@ static void *  server_resend_pthread(void * arg)
 
 int main(int argc,char * argv[])
 {
+
+
 	int ret = -1;
-	ret = server_init();
-	if(ret != 0)
+	int value = 0;
+	int i = 0;
+	server_handle_t * handle = calloc(1,sizeof(1,*handle));
+	if(NULL == handle)
 	{
-		dbg_printf("server_init is fail ! \n");
+		dbg_printf("calloc is fail ! \n");
 		return(-1);
 	}
+
+
+	handle->server_socket = socket(AF_INET, SOCK_DGRAM, 0);
+
+	struct sockaddr_in	servaddr;
+	bzero(&servaddr, sizeof(servaddr));
+	servaddr.sin_family      = AF_INET;
+	servaddr.sin_addr.s_addr = htonl(INADDR_ANY);
+	servaddr.sin_port        = htons(SERVER_PORT);
+	int buff_size = 32 * 1024;
+	setsockopt(handle->server_socket, SOL_SOCKET, SO_RCVBUF, &buff_size, sizeof(buff_size));
+	setsockopt(handle->server_socket, SOL_SOCKET, SO_SNDBUF, (char*)&buff_size, sizeof(buff_size));
+
+	value = fcntl(handle->server_socket,F_GETFL,0);
+	ret = fcntl(handle->server_socket, F_SETFL, value|O_NONBLOCK);
+	if(ret < 0)
+	{
+		dbg_printf("F_SETFL fail ! \n");
+		return(-2);
+	}
+	fcntl(handle->server_socket, F_SETFD, FD_CLOEXEC);
+	ret = bind(handle->server_socket, (struct sockaddr *) &servaddr, sizeof(servaddr));
+	if(ret != 0 )
+	{
+		dbg_printf("bind is fail ! \n");
+		return(-3);
+	}
+
+	ret = ring_queue_init(&handle->server_msg_queue, 4096);
+	if(ret < 0 )
+	{
+		dbg_printf("ring_queue_init  fail \n");
+		return(-3);
+	}
+    pthread_mutex_init(&(handle->mutex_server), NULL);
+    pthread_cond_init(&(handle->cond_server), NULL);
+	handle->server_msg_num = 0;
+
+
+	ret = ring_queue_init(&handle->send_msg_queue, 1024);
+	if(ret < 0 )
+	{
+		dbg_printf("ring_queue_init  fail \n");
+		return(-4);
+	}
+    pthread_mutex_init(&(handle->mutex_send), NULL);
+    pthread_cond_init(&(handle->cond_send), NULL);
+	handle->send_msg_num = 0;
+
+
+
+	handle->packet_num = 0;
+	for(i=0;i<RESEND_PACKET_MAX_NUM;++i)
+		handle->resend[i] = NULL;
+	 pthread_mutex_init(&(handle->mutex_resend), NULL);
+	 pthread_cond_init(&(handle->cond_resend), NULL);
+	 handle->resend_msg_num = 0;
+
+	for(i=0;i<DEVICE_MAX_NUM;++i)
+	{
+		handle->dev[i] = calloc(1,sizeof(dev_info_t));
+		if(NULL == handle->dev[i])
+		{
+			dbg_printf("calloc is fail ! \n");
+			goto fail;
+		}
+		handle->dev[i]->is_run = 0;
+	}
+
 
 	int epfd = -1;
 	struct epoll_event add_event;
 	struct epoll_event events[4096];
 	epfd=epoll_create(4096);
 	add_event.data.fd = handle->server_socket;
-	add_event.events = EPOLLIN | EPOLLET;
+	add_event.events = EPOLLIN | EPOLLHUP;
 	epoll_ctl (epfd, EPOLL_CTL_ADD, handle->server_socket, &add_event);
 
 	pthread_t process_packet_pthed;
-	ret = pthread_create(&process_packet_pthed,NULL,server_recv_pthread,handle);
+	ret = pthread_create(&process_packet_pthed,NULL,process_recv_fun,handle);
 
 	pthread_t server_send_ptid;
-	ret = pthread_create(&server_send_ptid,NULL,server_send_pthread,handle);
-	pthread_detach(server_send_ptid);
+	ret = pthread_create(&server_send_ptid,NULL,send_pthread_fun,handle);
+
 
 	pthread_t server_resend_ptid;
-	ret = pthread_create(&server_resend_ptid,NULL,server_resend_pthread,handle);
-	pthread_detach(server_resend_ptid);
-	
+	ret = pthread_create(&server_resend_ptid,NULL,resend_pthread_fun,handle);
+
+
+	struct sockaddr from;
+	socklen_t addr_len = sizeof(struct sockaddr);
+	int len = 0;
+	char buff[1500];
+	packet_header_t * header = (packet_header_t*)(buff);
 	int is_run = 1;
 	int nevents=0;
-	int i=0;
 	while(is_run)
 	{
 		nevents= epoll_wait(epfd, events, 4096, -1);
+
 		for(i=0;i<nevents;++i)
 		{
 
@@ -1274,7 +537,39 @@ int main(int argc,char * argv[])
 			}
 			if(handle->server_socket == events[i].data.fd)
 			{
-				server_disperse_packets(handle);
+			
+				len = recvfrom(handle->server_socket,buff,sizeof(buff), 0 , (struct sockaddr *)&from ,&addr_len); 
+				if(len <= 0 )
+				{
+					dbg_printf("the length is not right ! \n");
+					continue;
+				}
+
+				if(header->type <= DUMP_PACKET || header->type >= UNKNOW_PACKET )
+				{
+					dbg_printf("the packet is not in the limit ! \n");
+					continue;
+				}
+
+
+				void * data = calloc(1,sizeof(struct sockaddr)+sizeof(char)*len+1);
+				if(NULL == data)
+				{
+					dbg_printf("calloc is fail ! \n");
+					continue;
+				}
+				
+				memmove(data,&from,sizeof(struct sockaddr));
+				memmove((char*)data+sizeof(struct sockaddr),buff,len);
+				
+				ret = server_push_recvmsg(handle,data);
+				if(0 != ret)
+				{
+					dbg_printf("server_push_msg is fail ! \n");
+					free(data);
+					data = NULL;
+				}
+				
 
 			}
 
@@ -1282,9 +577,17 @@ int main(int argc,char * argv[])
 	}
 
 	pthread_join(process_packet_pthed,NULL);
-
+	pthread_join(server_send_ptid,NULL);
+	pthread_join(server_resend_ptid,NULL);
 
 	return(0);
+
+
+fail:
+
+
+	return(-1);
+
 }
 
 

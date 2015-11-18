@@ -1,6 +1,6 @@
 
 #include "net_send.h"
-
+#include "system_init.h"
 
 #undef  	DBG_ON
 #undef  	FILE_NAME
@@ -99,8 +99,9 @@ int  send_push_msg(net_send_handle_t *send_handle,void * data )
 
 static void *  send_pthread_fun(void * arg)
 {
-	net_send_handle_t * send = (net_send_handle_t * )arg;
-	if(NULL == send)
+	camera_handle_t * camera_dev = (camera_handle_t*)arg;
+	net_send_handle_t * send = (net_send_handle_t * )camera_dev->send;
+	if(NULL == camera_dev || NULL == send)
 	{
 		dbg_printf("please check the param ! \n");
 		return(NULL);
@@ -245,8 +246,11 @@ static void *  send_pthread_fun(void * arg)
 
 static void *  resend_pthread_fun(void * arg)
 {
-	net_send_handle_t * send = (net_send_handle_t * )arg;
-	if(NULL == send)
+
+	camera_handle_t * camera_dev = (camera_handle_t*)arg;
+	net_send_handle_t * send = (net_send_handle_t * )camera_dev->send;
+
+	if(NULL == camera_dev  || NULL == send)
 	{
 		dbg_printf("please check the param ! \n");
 		return(NULL);

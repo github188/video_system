@@ -9,19 +9,21 @@
 #define 	FILE_NAME 	"handle_packet"
 
 
-int  send_register_packet(void)
+int  send_register_packet(void * dev)
 {
 
 
 	int ret = -1;
-	if(NULL == camera || NULL == camera->socket || NULL == camera->send)
+	camera_handle_t * camera_dev = (camera_handle_t*)dev;
+	if(NULL == camera_dev || NULL == camera_dev->socket || NULL == camera_dev->send)
 	{
 		dbg_printf("check the param ! \n");
 		return(-1);
 	}
 
-	net_send_handle_t * send_handle = camera->send;
-	socket_handle_t * handle = camera->socket;
+	net_send_handle_t * send_handle = camera_dev->send;
+	socket_handle_t * handle = camera_dev->socket;
+	struct sockaddr localaddr = camera_dev->socket->localaddr;
 	
 
 	register_packet_t * rpacket = calloc(1,sizeof(*rpacket));
@@ -42,6 +44,7 @@ int  send_register_packet(void)
 	rpacket->head.index = 0xFFFF;
 	rpacket->head.packet_len = sizeof(rpacket->x);
 	rpacket->x = 'r';
+	rpacket->localaddr = localaddr;
 	memset(rpacket->dev_name,'\0',sizeof(rpacket->dev_name));
 	strcpy(rpacket->dev_name,"camera_0");
 	
@@ -83,18 +86,19 @@ fail:
 
 
 
-int  process_register_ask(void * arg)
+int  process_register_ask(void * dev,void * arg)
 {
 
 
 	dbg_printf("process_register_ask \n");
-	if(NULL == camera || NULL == camera->send)
+	camera_handle_t * camera_dev = (camera_handle_t*)dev;
+	if(NULL == camera_dev || NULL == camera_dev->send)
 	{
 		dbg_printf("check the param ! \n");
 		return(-1);
 	}
 
-	net_send_handle_t * send_handle = camera->send;
+	net_send_handle_t * send_handle = camera_dev->send;
 	
 	struct sockaddr * src_addres = (struct sockaddr *)arg;
 	packet_header_t * header =	(packet_header_t *)(src_addres+1); 

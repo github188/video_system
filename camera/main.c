@@ -166,9 +166,16 @@ int main(void)
 
 #include "system_init.h"
 #include "handle_packet.h"
+
+
+
 int main(void)
 {
 	int ret = -1;
+
+	#if 1
+
+	#endif
 	
 	ret = system_init();
 	if(0 != ret )
@@ -176,7 +183,7 @@ int main(void)
 		dbg_printf("system_init is fail ! \n");
 		return(-1);
 	}
-	send_register_packet();	
+	send_register_packet(camera);	
 	while(1)sleep(100);
 	return(0);
 }

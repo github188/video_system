@@ -6,6 +6,7 @@
 #include "data_packet.h"
 
 
+
 typedef struct handle_packet_fun
 {
 	packet_type_m type;
@@ -16,7 +17,7 @@ handle_packet_fun_t *  get_handle_packet_fun(void);
 
 
 
-int  send_register_packet(void * handle);
+int  send_register_packet(void);
 
 
 #endif  /*_handle_packet_h*/

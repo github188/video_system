@@ -103,3 +103,15 @@ int get_local_addr(const char * interface,struct sockaddr * addr)
 }
 
 
+int is_digit(char * str)
+{
+	int i = 0;
+	if(NULL == str)return(0);
+
+	for(i=0;i<strlen(str);++i)
+	{
+		if(str[i] >= '0' && str[i] <='9')continue;
+		return(0);
+	}
+	return(1);
+}

@@ -107,18 +107,18 @@ int system_init(void)
 	}
 
 	
-	ret = pthread_create(&camera->send->netsend_ptid,NULL,camera->send->send_fun,camera->send);
+	ret = pthread_create(&camera->send->netsend_ptid,NULL,camera->send->send_fun,camera);
 	pthread_detach(camera->send->netsend_ptid);
 
-	ret = pthread_create(&camera->send->netresend_ptid,NULL,camera->send->resend_fun,camera->send);
+	ret = pthread_create(&camera->send->netresend_ptid,NULL,camera->send->resend_fun,camera);
 	pthread_detach(camera->send->netresend_ptid);
 
 
 
-	ret = pthread_create(&camera->recv->netrecv_ptid,NULL,camera->recv->recv_fun,camera->recv);
+	ret = pthread_create(&camera->recv->netrecv_ptid,NULL,camera->recv->recv_fun,camera);
 	pthread_detach(camera->recv->netrecv_ptid);
 
-	ret = pthread_create(&camera->recv->netprocess_ptid,NULL,camera->recv->process_fun,camera->recv);
+	ret = pthread_create(&camera->recv->netprocess_ptid,NULL,camera->recv->process_fun,camera);
 	pthread_detach(camera->recv->netprocess_ptid);
 
 
