@@ -35,6 +35,7 @@ int system_init(void)
 {
 
 	int ret = -1;
+	int i = 0;
 	ret = inipare_init();
 	if(0 != ret)
 	{
@@ -58,6 +59,17 @@ int system_init(void)
 		dbg_printf("calloc is fail ! \n");
 		return(-2);
 	}
+
+	camera->user_count = 0;
+	for(i=0;i<MAX_USER; ++i)
+	{
+		camera->user[i] = calloc(1,sizeof(client_user_t));
+		if(NULL == camera->user[i])return(-1);
+		camera->user[i]->is_run = 0;
+		camera->user[i]->id_num = i;
+		camera->user[i]->encode_handle = NULL;
+	}
+	
 
 	camera->socket = (socket_handle_t*)socket_socket_new();
 	if(NULL == camera->socket)

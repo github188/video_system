@@ -7,6 +7,7 @@
 #include "handle_packet.h"
 
 
+#define  MAX_USER   (2)
 
 typedef  struct client_user
 {
@@ -31,8 +32,8 @@ typedef struct camera_handle
 	net_recv_handle_t * recv;
 	handle_packet_fun_t * fun;
 
-	int max_user;
-	client_user_t * user;
+	int user_count;
+	client_user_t *user[MAX_USER];
 
 }camera_handle_t;
 

@@ -6,7 +6,7 @@
 #undef  	DBG_ON
 #undef  	FILE_NAME
 #define 	DBG_ON  	(0x01)
-#define 	FILE_NAME 	"handle_packet"
+#define 	FILE_NAME 	"handle_packet:"
 
 
 int  send_register_packet(void * dev)
@@ -119,8 +119,9 @@ int  process_loin_packet(void * dev,void * arg)
 {
 
 
-	dbg_printf("process_loin_packet \n");
+	
 	int ret = -1;
+	int i = 0;
 	camera_handle_t * camera_dev = (camera_handle_t*)dev;
 	if(NULL == camera_dev || NULL == camera_dev->send)
 	{
@@ -140,8 +141,25 @@ int  process_loin_packet(void * dev,void * arg)
 	}
 
 	
-	if('s' == packet->l)
+	if('c' == packet->l)
 	{
+
+		dbg_printf("cccccccccccccccccccccccccccccccccccccccccc\n");
+		int id_num = -1;
+		for(i=0;i<MAX_USER; ++i)
+		{
+			if(0 == memcmp(&camera_dev->user[i]->addr,&packet->dev_addr,sizeof(packet->dev_addr)))	break;
+	
+			if(0 == camera_dev->user[i]->is_run)
+			{
+				id_num = i;
+				camera_dev->user[i]->is_run = 1;
+				camera_dev->user[i]->addr = packet->dev_addr;
+				break;
+			}
+		}
+
+
 		loin_packet_ask_t * rpacket = calloc(1,sizeof(*rpacket));
 		if(NULL == rpacket)
 		{
@@ -159,22 +177,18 @@ int  process_loin_packet(void * dev,void * arg)
 		}
 
 		rpacket->head.type = LOIN_PACKET_ASK;
-		rpacket->head.index = 0xFFFF;
+		rpacket->head.index = packet->head.index;
 		rpacket->head.packet_len = sizeof(loin_packet_ask_t);
 		rpacket->l = 'c'+1;
+		rpacket->id_num = id_num;
 		
 
 		spacket->sockfd = handle->local_socket;
 		spacket->data = rpacket;
 		spacket->length = sizeof(loin_packet_ask_t);
 
-		spacket->to = packet->dev_addr;
-		spacket->type = RELIABLE_PACKET;
-		spacket->is_resend = 0;
-		spacket->resend_times = 0;
-		spacket->index = 0xFFFF;
-		spacket->ta.tv_sec = 0;
-		spacket->ta.tv_usec = 800*1000;
+		spacket->to = *src_addres;
+		spacket->type = UNRELIABLE_PACKET;
 		ret = send_push_msg(send_handle,spacket);
 		if(ret != 0)
 		{
@@ -185,13 +199,54 @@ int  process_loin_packet(void * dev,void * arg)
 			spacket = NULL;
 		}	
 
-
-
 	}
-	else if('c' == packet->l)
+	else if('s' == packet->l)
 	{
 
-	
+		dbg_printf("sssssssssssssssssssssssssssssssssss\n");
+		loin_packet_ask_t * rpacket_server = calloc(1,sizeof(*rpacket_server));
+		if(NULL == rpacket_server)
+		{
+			dbg_printf("calloc is fail ! \n");
+			return(-2);
+		}
+
+		send_packet_t *spacket_server = calloc(1,sizeof(*spacket_server));
+		if(NULL == spacket_server)
+		{
+			dbg_printf("calloc is fail ! \n");
+			free(rpacket_server);
+			rpacket_server = NULL;
+			return(-3);
+		}
+
+		rpacket_server->head.type = LOIN_PACKET_ASK;
+		rpacket_server->head.index = 0xFFFF;
+		rpacket_server->head.packet_len = sizeof(loin_packet_ask_t);
+		rpacket_server->l = 's'+1;
+		rpacket_server->id_num = 0;
+		
+
+		spacket_server->sockfd = handle->local_socket;
+		spacket_server->data = rpacket_server;
+		spacket_server->length = sizeof(loin_packet_ask_t);
+
+		spacket_server->to = packet->dev_addr;
+		spacket_server->type = UNRELIABLE_PACKET;
+		spacket_server->is_resend = 0;
+		spacket_server->resend_times = 0;
+		spacket_server->index = 0xFFFF;
+		spacket_server->ta.tv_sec = 0;
+		spacket_server->ta.tv_usec = 800*1000;
+		ret = send_push_msg(send_handle,spacket_server);
+		if(ret != 0)
+		{
+			dbg_printf("send_push_msg is fail ! \n");
+			free(rpacket_server);
+			rpacket_server = NULL;
+			free(spacket_server);
+			spacket_server = NULL;
+		}	
 
 	}
 

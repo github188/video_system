@@ -216,8 +216,18 @@ static int  process_peer_packet(void * dev_handle,void * pdata)
 	rpacket->head.ret = flag;
 	rpacket->p = 'p'+1;
 	memmove(rpacket->dev_name,packet->dev_name,sizeof(rpacket->dev_name));
-	rpacket->dev_addr = handle->dev[dev_index]->dev_addr;
-	rpacket->dev_localaddr = handle->dev[dev_index]->dev_localaddr;
+
+
+	if(((struct sockaddr_in *)src_addres)->sin_addr.s_addr == ((struct sockaddr_in *)&handle->dev[dev_index]->dev_addr)->sin_addr.s_addr)
+	{
+		rpacket->dev_addr = handle->dev[dev_index]->dev_localaddr;
+		((struct sockaddr_in*)(&rpacket->dev_addr))->sin_port = ((struct sockaddr_in *)&handle->dev[dev_index]->dev_addr)->sin_port;
+	}
+	else
+	{
+		rpacket->dev_addr = handle->dev[dev_index]->dev_addr;
+	}
+
 
 
 	spacket->sockfd = handle->server_socket;

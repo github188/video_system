@@ -115,3 +115,17 @@ int is_digit(char * str)
 	}
 	return(1);
 }
+
+
+
+
+int addres_is_equal(struct sockaddr * addr1,struct sockaddr * addr2)
+{
+
+	struct sockaddr_in * socket_addr1 = (struct sockaddr_in *)addr1;
+	struct sockaddr_in * socket_addr2 = (struct sockaddr_in *)addr2;
+
+//	dbg_printf("%ld  %ld  \n",socket_addr1->sin_addr.s_addr,socket_addr2->sin_addr.s_addr);
+	return(socket_addr1->sin_addr.s_addr == socket_addr2->sin_addr.s_addr);
+	
+}

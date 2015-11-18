@@ -100,7 +100,6 @@ typedef struct peer_ask_packet
 	char p;
 	char dev_name[64];
 	struct sockaddr dev_addr;
-	struct sockaddr dev_localaddr;
 }peer_ask_packet_t;
 
 
@@ -122,6 +121,7 @@ typedef struct loin_packet_ask
 {
 	packet_header_t head;
 	char l;
+	char id_num;
 }loin_packet_ask_t;
 
 

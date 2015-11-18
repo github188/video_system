@@ -6,7 +6,7 @@
 #undef  	DBG_ON
 #undef  	FILE_NAME
 #define 	DBG_ON  	(0x01)
-#define 	FILE_NAME 	"handle_packet"
+#define 	FILE_NAME 	"handle_packet:"
 
 
 int  send_peer_packet(void * dev)
@@ -91,6 +91,7 @@ int  process_peer_ask(void * dev,void * arg)
 
 
 	dbg_printf("process_peer_ask \n");
+	int ret = -1;
 	camera_handle_t * camera_dev = (camera_handle_t*)dev;
 	if(NULL == camera_dev || NULL == camera_dev->send)
 	{
@@ -98,7 +99,7 @@ int  process_peer_ask(void * dev,void * arg)
 		return(-1);
 	}
 	net_send_handle_t * send_handle = camera_dev->send;
-	
+	socket_handle_t * handle = camera_dev->socket;
 	struct sockaddr * src_addres = (struct sockaddr *)arg;
 	packet_header_t * header =	(packet_header_t *)(src_addres+1); 
 	peer_ask_packet_t * packet = (peer_ask_packet_t*)(header);
@@ -108,6 +109,58 @@ int  process_peer_ask(void * dev,void * arg)
 		return(-1);
 	}
 	send_remove_packet(send_handle,packet->head.index);
+
+	if(0 != packet->head.ret)return(-1);
+
+	#if 1
+
+	loin_packet_t * rpacket_dev = calloc(1,sizeof(*rpacket_dev));
+	if(NULL == rpacket_dev)
+	{
+		dbg_printf("calloc is fail ! \n");
+		return(-1);
+	}
+	send_packet_t *spacket_dev = calloc(1,sizeof(*spacket_dev));
+	if(NULL == spacket_dev)
+	{
+		dbg_printf("calloc is fail ! \n");
+		free(rpacket_dev);
+		rpacket_dev = NULL;
+	}
+	rpacket_dev->head.type = LOIN_PACKET;
+	rpacket_dev->head.index = 0xFFFF;
+	rpacket_dev->head.packet_len = sizeof(loin_packet_t);
+	rpacket_dev->head.ret = 0;
+	rpacket_dev->l = 'c';
+	memmove(rpacket_dev->dev_name,packet->dev_name,sizeof(rpacket_dev->dev_name));
+
+	rpacket_dev->dev_addr = packet->dev_addr;
+
+	spacket_dev->sockfd = handle->local_socket;
+	spacket_dev->data = rpacket_dev;
+	spacket_dev->length = sizeof(loin_packet_t);
+	spacket_dev->to = packet->dev_addr;
+
+	spacket_dev->type = RELIABLE_PACKET;
+	spacket_dev->is_resend = 0;
+	spacket_dev->resend_times = 0;
+	spacket_dev->index = 0xFFFF;
+	spacket_dev->ta.tv_sec = 0;
+	spacket_dev->ta.tv_usec = 800*1000;
+	ret = send_push_msg(send_handle,spacket_dev);
+	dbg_printf("999999999999999999999999999999999\n");
+	if(ret != 0)
+	{
+		dbg_printf("netsend_push_msg is fail ! \n");
+		free(rpacket_dev);
+		rpacket_dev = NULL;
+		free(spacket_dev);
+		spacket_dev = NULL;
+	}
+
+
+	#endif
+	
 	
 	return(0);
 }
@@ -133,6 +186,17 @@ int  process_loin_ask(void * dev,void * arg)
 	{
 		dbg_printf("the packet is not right ! \n");
 		return(-1);
+	}
+
+	if('c'+1 == packet->l)
+	{
+		dbg_printf("ccccccccccccccccccccccccccccc\n");
+		send_remove_packet(send_handle,packet->head.index);	
+	}
+	else if('s'+1 == packet->l)
+	{
+		dbg_printf("sssssssssssssssssssssssssssssssss\n");
+
 	}
 
 	

@@ -54,5 +54,5 @@ char * socket_ntop(struct sockaddr *sa);
 int  socket_get_port(const struct sockaddr *sa);
 int get_local_addr(const char * interface,struct sockaddr * addr);
 int is_digit(char * str);
-
+int addres_is_equal(struct sockaddr * addr1,struct sockaddr * addr2);
 #endif
