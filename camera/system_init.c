@@ -1,13 +1,4 @@
-#include <stdio.h>
-#include <unistd.h>
-#include <stdlib.h>
-#include <string.h>
-#include <errno.h>
-
-#include "common.h"
 #include "system_init.h"
-#include "link_net.h"
-#include "parser_inifile.h"
 
 
 
@@ -118,6 +109,14 @@ int system_init(void)
 		goto fail;
 	}
 
+
+	camera->monitor = (monitor_user_t*)monitor_handle_new();
+	if(NULL == camera->monitor)
+	{
+		dbg_printf("monitor_handle_new is fail ! \n");
+		goto fail;
+	}
+
 	
 	ret = pthread_create(&camera->send->netsend_ptid,NULL,camera->send->send_fun,camera);
 	pthread_detach(camera->send->netsend_ptid);
@@ -132,6 +131,10 @@ int system_init(void)
 
 	ret = pthread_create(&camera->recv->netprocess_ptid,NULL,camera->recv->process_fun,camera);
 	pthread_detach(camera->recv->netprocess_ptid);
+
+
+	ret = pthread_create(&camera->monitor->monitor_ptid,NULL,camera->monitor->monitor_fun,camera);
+	pthread_detach(camera->monitor->monitor_ptid);
 
 
 	
@@ -154,6 +157,11 @@ fail:
 	if(NULL != camera->recv)
 	{
 		recv_handle_destroy(camera->recv);	
+	}
+
+	if(NULL != camera->monitor)
+	{
+		monitor_handle_destroy(camera->monitor);	
 	}
 
 	if(NULL != camera)

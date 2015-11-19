@@ -8,10 +8,10 @@
 #define 	DBG_ON  	(0x01)
 #define 	FILE_NAME 	"handle_packet:"
 
+#define  INVADE_ID_NUM		(100)
 
 int  send_register_packet(void * dev)
 {
-
 
 	int ret = -1;
 	camera_handle_t * camera_dev = (camera_handle_t*)dev;
@@ -118,8 +118,6 @@ int  process_register_ask(void * dev,void * arg)
 int  process_loin_packet(void * dev,void * arg)
 {
 
-
-	
 	int ret = -1;
 	int i = 0;
 	camera_handle_t * camera_dev = (camera_handle_t*)dev;
@@ -145,16 +143,29 @@ int  process_loin_packet(void * dev,void * arg)
 	{
 
 		dbg_printf("cccccccccccccccccccccccccccccccccccccccccc\n");
-		int id_num = -1;
+		int id_num = INVADE_ID_NUM;
+		int is_in_list = 0;
+
 		for(i=0;i<MAX_USER; ++i)
 		{
-			if(0 == memcmp(&camera_dev->user[i]->addr,&packet->dev_addr,sizeof(packet->dev_addr)))	break;
-	
+			if(0 == camera_dev->user[i]->is_run)continue;
+			if(0 == memcmp(&camera_dev->user[i]->addr,src_addres,sizeof(*src_addres)))
+			{
+				id_num = camera_dev->user[i]->id_num;
+				is_in_list = 1;
+				break;
+			}
+		}
+		
+		for(i=0;(0==is_in_list)&&(i<MAX_USER); ++i)
+		{
 			if(0 == camera_dev->user[i]->is_run)
 			{
 				id_num = i;
 				camera_dev->user[i]->is_run = 1;
-				camera_dev->user[i]->addr = packet->dev_addr;
+				camera_dev->user[i]->addr = *src_addres;
+				camera_dev->user_count += 1;
+				
 				break;
 			}
 		}
@@ -250,12 +261,32 @@ int  process_loin_packet(void * dev,void * arg)
 
 	}
 
-
-
 	return(0);
 
-
 }
+
+
+
+
+int  process_beatheart_packet(void * dev,void * arg)
+{
+
+	camera_handle_t * camera_dev = (camera_handle_t*)dev;
+	struct sockaddr * src_addres = (struct sockaddr *)arg;
+	packet_header_t * header =	(packet_header_t *)(src_addres+1); 
+	beartheart_packet_t * packet = (beartheart_packet_t*)(header);
+	client_user_t * client = (client_user_t*)camera_dev->user[packet->id_num];
+	if(0 == client->is_run)return(-1);
+	if(0 != memcmp(&client->addr,src_addres,sizeof(*src_addres)))
+	{
+		dbg_printf("not register users ! \n");
+		return(-2);
+	}
+	client->beatheart = 1;
+	
+	return(0);
+}
+
 
 
 static handle_packet_fun_t pfun_recvsystem[] = {
@@ -266,9 +297,7 @@ static handle_packet_fun_t pfun_recvsystem[] = {
 	{PEER_PACKET_ASK,NULL},
 	{LOIN_PACKET,process_loin_packet},
 	{LOIN_PACKET_ASK,NULL},
-	{ACTIVE_CHANNEL_PACKET,NULL},
-	{ACTIVE_CHANNEL_ASK,NULL},
-	{BEATHEART_PACKET,NULL},
+	{BEATHEART_PACKET,process_beatheart_packet},
 	{BEATHEART_PACKET_ASK,NULL},
 	{UNKNOW_PACKET,NULL},
 		

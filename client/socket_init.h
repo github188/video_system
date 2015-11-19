@@ -11,7 +11,7 @@ typedef struct socket_handle
 	int local_socket;
 	struct sockaddr	servaddr;
 	struct sockaddr localaddr;
-	struct sockaddr peeraddr;
+
 
 }socket_handle_t;
 

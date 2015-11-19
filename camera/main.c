@@ -183,7 +183,9 @@ int main(void)
 		dbg_printf("system_init is fail ! \n");
 		return(-1);
 	}
-	send_register_packet(camera);	
+	send_register_packet(camera);
+
+	//使用pthread_join();来进行阻塞
 	while(1)sleep(100);
 	return(0);
 }

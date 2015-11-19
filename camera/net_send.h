@@ -35,8 +35,8 @@ typedef struct net_send_handle
 
 
 
-int send_remove_packet(net_send_handle_t *send_handle, int index);
-int  send_push_msg(net_send_handle_t *send_handle,void * data );
+int send_remove_packet(void *send_handle, int index);
+int  send_push_msg(void *send_handle,void * data );
 void * send_handle_new(void);
 void send_handle_destroy(void * arg);
 

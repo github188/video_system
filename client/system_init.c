@@ -1,10 +1,4 @@
-#include <stdio.h>
-#include <unistd.h>
-#include <stdlib.h>
-#include <string.h>
-#include <errno.h>
 
-#include "common.h"
 #include "system_init.h"
 
 
@@ -110,6 +104,15 @@ int system_init(void)
 		goto fail;
 	}
 
+	camera->beatheart = heartbeat_handle_new();
+	if(NULL == camera->beatheart)
+	{
+		dbg_printf("heartbeat_handle_new is fail ! \n");
+		goto fail;
+	}
+
+	
+
 
 
 	
@@ -129,6 +132,9 @@ int system_init(void)
 
 	ret = pthread_create(&camera->loin->loin_ptid,NULL,camera->loin->loin_fun,camera);
 	pthread_detach(camera->loin->loin_ptid);
+
+	ret = pthread_create(&camera->beatheart->heartbeat_ptid,NULL,camera->beatheart->heartbeat_fun,camera);
+	pthread_detach(camera->beatheart->heartbeat_ptid);
 
 
 	
@@ -158,6 +164,11 @@ fail:
 		loin_handle_destroy(camera->loin);
 		
 	}
+	if(NULL != camera->beatheart)
+	{
+		heartbeat_handle_destroy(camera->beatheart);		
+	}
+	
 	if(NULL != camera)
 	{
 		free(camera);

@@ -44,8 +44,6 @@ typedef enum
 	PEER_PACKET_ASK,
 	LOIN_PACKET,
 	LOIN_PACKET_ASK,
-	ACTIVE_CHANNEL_PACKET,
-	ACTIVE_CHANNEL_ASK,
 	BEATHEART_PACKET,
 	BEATHEART_PACKET_ASK,
 	UNKNOW_PACKET,
@@ -104,7 +102,6 @@ typedef struct peer_ask_packet
 
 
 
-
 typedef struct loin_packet
 {
 	packet_header_t head;
@@ -124,38 +121,11 @@ typedef struct loin_packet_ask
 
 
 
-
-
-
-
-typedef struct hole_packet
+typedef struct beartheart_packet
 {
 	packet_header_t head;
-	struct sockaddr dev_addr;
-}hole_packet_t;
-
-
-typedef struct hole_packet_ask
-{
-	packet_header_t head;
-	struct sockaddr dev_addr;
-}hole_packet_ask_t;
-
-
-
-typedef struct active_channle
-{
-	packet_header_t head;
-	char a;
-}active_channle_t;
-
-
-typedef struct active_channle_ask
-{
-	packet_header_t head;
-	char a;
-}active_channle_ask_t;
-
+	char id_num;
+}beartheart_packet_t;
 
 
 

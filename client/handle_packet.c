@@ -8,6 +8,7 @@
 #define 	DBG_ON  	(0x01)
 #define 	FILE_NAME 	"handle_packet:"
 
+#define  INVADE_ID_NUM		(100)
 
 int  send_peer_packet(void * dev)
 {
@@ -144,6 +145,15 @@ int  process_loin_ask(void * dev,void * arg)
 	{
 		dbg_printf("ccccccccccccccccccccccccccccc\n");
 		loin_stop(camera_dev);
+		if(packet->id_num == INVADE_ID_NUM)
+		{
+			dbg_printf("out of the number of client counts ! \n");
+			return(-1);
+		}
+		camera_dev->id_num = packet->id_num;
+		camera_dev->peeraddr = *src_addres;
+		heartbeat_start(camera_dev);
+		
 	}
 	else if('s'+1 == packet->l)
 	{
@@ -151,7 +161,6 @@ int  process_loin_ask(void * dev,void * arg)
 
 	}
 
-	
 	return(0);
 }
 
@@ -164,8 +173,6 @@ static handle_packet_fun_t pfun_recvsystem[] = {
 	{PEER_PACKET_ASK,process_peer_ask},
 	{LOIN_PACKET,NULL},
 	{LOIN_PACKET_ASK,process_loin_ask},
-	{ACTIVE_CHANNEL_PACKET,NULL},
-	{ACTIVE_CHANNEL_ASK,NULL},
 	{BEATHEART_PACKET,NULL},
 	{BEATHEART_PACKET_ASK,NULL},
 	{UNKNOW_PACKET,NULL},

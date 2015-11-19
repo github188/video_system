@@ -8,7 +8,7 @@
 #define 	FILE_NAME 	"net_send"
 
 
-int send_remove_packet(net_send_handle_t *send_handle, int index)
+int send_remove_packet(void *send_handle, int index)
 {
 
 	if(RESEND_PACKET_MAX_NUM < index || NULL == send_handle)
@@ -17,7 +17,7 @@ int send_remove_packet(net_send_handle_t *send_handle, int index)
 		return(-1);
 	}
 
-	net_send_handle_t * send = send_handle;
+	net_send_handle_t * send = (net_send_handle_t*)send_handle;
 	send_packet_t * packet = NULL;
 	
 	pthread_mutex_lock(&(send->mutex_resend));
@@ -51,7 +51,7 @@ int send_remove_packet(net_send_handle_t *send_handle, int index)
 }
 
 
-int  send_push_msg(net_send_handle_t *send_handle,void * data )
+int  send_push_msg(void *send_handle,void * data )
 {
 
 	int ret = 1;
@@ -62,7 +62,7 @@ int  send_push_msg(net_send_handle_t *send_handle,void * data )
 		return(-1);
 	}
 
-	net_send_handle_t * send = send_handle;
+	net_send_handle_t * send = (net_send_handle_t*)send_handle;
 
 	pthread_mutex_lock(&(send->mutex_send));
 

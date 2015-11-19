@@ -1,22 +1,4 @@
-
-#include <stdio.h>
-#include <unistd.h>
-#include <fcntl.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <string.h>
-#include <pthread.h>
-#include <ctype.h>
-#include <net/if.h>       
-#include <linux/sockios.h>     
-#include <netinet/in.h>      
-#include <sys/socket.h>  
-#include <sys/types.h>  
-#include <sys/ioctl.h> 
-#include <linux/if_ether.h>
-
-#include "common.h"
-#include "parser_inifile.h"
+#include "link_net.h"
 
 
 #undef  	DBG_ON

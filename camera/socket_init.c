@@ -13,6 +13,7 @@
 #include "common.h"
 #include "socket_init.h"
 #include "link_net.h"
+#include "system_init.h"
 
 
 
