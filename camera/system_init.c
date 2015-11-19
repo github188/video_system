@@ -1,5 +1,6 @@
 #include "system_init.h"
-
+#include "akuio.h"
+#include "video_encode.h"
 
 
 
@@ -10,23 +11,43 @@
 
 
 
-
-
-
-
-
-
 camera_handle_t * camera = NULL;
 
 
 
+static int system_lib_init(void)
+{
+	int ret = -1;
+	ret = akuio_pmem_init();
+	if(ret != 0 )
+	{
+		dbg_printf("akuio_pmem_init fail ! \n");
+		return(-1);
+	}
 
+	ret = video_encode_init();
+	if(0 == ret)
+	{
+		dbg_printf("video encode lib init fail ! \n");
+		return(-2);
+	}
+
+	return(0);
+}
 
 int system_init(void)
 {
 
 	int ret = -1;
 	int i = 0;
+
+	ret = system_lib_init();
+	if(0 != ret)
+	{
+		dbg_printf("system_lib_init is fail ! \n");
+		return(-1);
+
+	}
 	ret = inipare_init();
 	if(0 != ret)
 	{
@@ -51,6 +72,7 @@ int system_init(void)
 		return(-2);
 	}
 
+
 	camera->user_count = 0;
 	for(i=0;i<MAX_USER; ++i)
 	{
@@ -58,7 +80,9 @@ int system_init(void)
 		if(NULL == camera->user[i])return(-1);
 		camera->user[i]->is_run = 0;
 		camera->user[i]->id_num = i;
-		camera->user[i]->encode_handle = NULL;
+		camera->user[i]->iframe_gap = 30;
+		camera->user[i]->frame_count = 0;
+		camera->user[i]->encode_handle = video_new_handle(500*1024);
 	}
 	
 
@@ -69,12 +93,6 @@ int system_init(void)
 		goto fail;
 	}
 
-#if 1
-	struct sockaddr_in * localaddr = (struct sockaddr_in *)&camera->socket->localaddr;
-	char * ip = socket_ntop(&camera->socket->localaddr);
-	dbg_printf("ip is %s port == %d \n",ip,ntohs(localaddr->sin_port));
-	free(ip);
-#endif
 
 	camera->send = (net_send_handle_t*)send_handle_new();
 	if(NULL == camera->send)
@@ -117,6 +135,14 @@ int system_init(void)
 		goto fail;
 	}
 
+	camera->video = video_stream_new_handle();
+	if(NULL == camera->video)
+	{
+		dbg_printf("video_stream_new_handle is fail ! \n");
+		goto fail;
+
+	}
+
 	
 	ret = pthread_create(&camera->send->netsend_ptid,NULL,camera->send->send_fun,camera);
 	pthread_detach(camera->send->netsend_ptid);
@@ -135,6 +161,12 @@ int system_init(void)
 
 	ret = pthread_create(&camera->monitor->monitor_ptid,NULL,camera->monitor->monitor_fun,camera);
 	pthread_detach(camera->monitor->monitor_ptid);
+
+
+	ret = pthread_create(&camera->video->capature_ptid,NULL,camera->video->capature_fun,camera);
+	pthread_detach(camera->video->capature_ptid);
+	ret = pthread_create(&camera->video->video_encode_ptid,NULL,camera->video->video_encode_fun,camera);
+	pthread_detach(camera->video->video_encode_ptid);
 
 
 	
@@ -162,6 +194,12 @@ fail:
 	if(NULL != camera->monitor)
 	{
 		monitor_handle_destroy(camera->monitor);	
+	}
+
+	if(NULL != camera->video)
+	{
+		video_stream_handle_destroy(camera->video);
+		
 	}
 
 	if(NULL != camera)

@@ -69,7 +69,7 @@ void * socket_socket_new(void)
 		goto fail;
 	}
 	
-	int buffer_size = 32*1024;
+	int buffer_size = 100*1024;
 	setsockopt(handle->local_socket, SOL_SOCKET, SO_RCVBUF, (char*)&buffer_size, sizeof(buffer_size));
 	setsockopt(handle->local_socket, SOL_SOCKET, SO_SNDBUF, (char*)&buffer_size, sizeof(buffer_size));
 	int optlocal=1;

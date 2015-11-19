@@ -80,7 +80,7 @@ static void * recv_data_fun(void * arg)
 	struct sockaddr from;
 	socklen_t addr_len = sizeof(struct sockaddr_in);
 	int len = 0;
-	char buff[1500];
+	char buff[100*1024];
 	packet_header_t * header = (packet_header_t*)(buff);
 	int is_run = 1;
 	int nevents = 0;
@@ -109,6 +109,7 @@ static void * recv_data_fun(void * arg)
 					dbg_printf("the length is not right ! \n");
 					continue;
 				}
+				dbg_printf("the p frame length is %d \n",len);
 				if(header->type <= DUMP_PACKET || header->type >= UNKNOW_PACKET)
 				{
 					dbg_printf("the packet is not in the limit ! \n");

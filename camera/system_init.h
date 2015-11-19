@@ -10,6 +10,7 @@
 #include "net_recv.h"
 #include "handle_packet.h"
 #include "monitor_user.h"
+#include "video_stream.h"
 
 
 
@@ -21,6 +22,9 @@ typedef  struct client_user
 	char id_num;
 	
 	int qp;
+	char iframe_gap;
+	char force_iframe;
+	char frame_count;
 	void * encode_handle;
 	struct sockaddr addr;
 	int beatheart;
@@ -44,6 +48,7 @@ typedef struct camera_handle
 	net_recv_handle_t * recv;
 	handle_packet_fun_t * fun;
 	monitor_user_t * monitor;
+	video_stream_handle_t * video;
 
 	int user_count;
 	client_user_t *user[MAX_USER];

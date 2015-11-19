@@ -165,6 +165,34 @@ int  process_loin_ask(void * dev,void * arg)
 }
 
 
+int  process_pframe_packet(void * dev,void * arg)
+{
+
+
+	dbg_printf("process_peer_ask \n");
+	int ret = -1;
+	camera_handle_t * camera_dev = (camera_handle_t*)dev;
+	if(NULL == camera_dev || NULL == camera_dev->send)
+	{
+		dbg_printf("check the param ! \n");
+		return(-1);
+	}
+	net_send_handle_t * send_handle = camera_dev->send;
+	socket_handle_t * handle = camera_dev->socket;
+	struct sockaddr * src_addres = (struct sockaddr *)arg;
+	packet_header_t * header =	(packet_header_t *)(src_addres+1); 
+	pframe_packet_t * packet = (pframe_packet_t*)(header);
+
+	
+
+
+
+	return(0);
+}
+
+
+
+
 static handle_packet_fun_t pfun_recvsystem[] = {
 
 	{REGISTER_PACKET,NULL},
@@ -175,6 +203,8 @@ static handle_packet_fun_t pfun_recvsystem[] = {
 	{LOIN_PACKET_ASK,process_loin_ask},
 	{BEATHEART_PACKET,NULL},
 	{BEATHEART_PACKET_ASK,NULL},
+	{IFRAME_PACKET,NULL},
+	{PFRAME_PACKET,process_pframe_packet},
 	{UNKNOW_PACKET,NULL},
 		
 };

@@ -46,6 +46,8 @@ typedef enum
 	LOIN_PACKET_ASK,
 	BEATHEART_PACKET,
 	BEATHEART_PACKET_ASK,
+	IFRAME_PACKET,
+	PFRAME_PACKET,
 	UNKNOW_PACKET,
 	
 }packet_type_m;
@@ -126,6 +128,35 @@ typedef struct beartheart_packet
 	packet_header_t head;
 	char id_num;
 }beartheart_packet_t;
+
+
+
+
+typedef struct iframe_packet
+{
+	packet_header_t head;
+	int  id_packet;
+	char sum_packets;
+	char index_packet;
+	char data[1024];
+}iframe_packet_t;
+
+
+
+typedef struct pframe_packet
+{
+	packet_header_t head;
+	int  id_packet;
+	int length;
+	char data[0];
+}pframe_packet_t;
+
+
+
+
+
+
+
 
 
 

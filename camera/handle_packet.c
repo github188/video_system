@@ -165,6 +165,7 @@ int  process_loin_packet(void * dev,void * arg)
 				camera_dev->user[i]->is_run = 1;
 				camera_dev->user[i]->addr = *src_addres;
 				camera_dev->user_count += 1;
+				video_capture_start(camera_dev);
 				
 				break;
 			}
