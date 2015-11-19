@@ -63,6 +63,7 @@ static void * loin_pcket_pthread(void * arg)
 
 		ret = send_push_msg(send_handle,spacket_dev);
 
+		dbg_printf("send loin data request ! \n");
 		if(ret != 0)
 		{
 			free(rpacket_dev);

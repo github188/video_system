@@ -81,7 +81,7 @@ void * socket_socket_new(void)
 	bzero(&local_addr, sizeof(local_addr));
 	local_addr.sin_family      = AF_INET;
 	local_addr.sin_addr.s_addr = htonl(INADDR_ANY);
-	local_addr.sin_port        = htons(LOCAL_PORT);
+	local_addr.sin_port        = htons(0/*LOCAL_PORT*/);
 	bind(handle->local_socket, (struct sockaddr *) &local_addr, sizeof(local_addr));
 
 
